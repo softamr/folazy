@@ -16,11 +16,11 @@ interface SearchPageParams {
 async function getFilteredListings(slug: string[], searchParams: any): Promise<{ listings: Listing[], category?: Category, subcategory?: Category }> {
   await new Promise(resolve => setTimeout(resolve, 200)); // Simulate network delay
   
-  let currentListings = [...placeholderListings];
+  let currentListings = placeholderListings.filter(l => l.status === 'approved'); // Only show approved listings
   let category: Category | undefined;
   let subcategory: Category | undefined;
 
-  if (slug && slug.length > 0) {
+  if (slug && slug.length > 0 && slug[0] !== 'all-listings') {
     const mainCategorySlug = slug[0];
     category = placeholderCategories.find(c => c.id === mainCategorySlug);
 
@@ -57,7 +57,8 @@ export default async function SearchPage({ params, searchParams }: SearchPagePar
   const { slug } = params;
   const { listings, category, subcategory } = await getFilteredListings(slug, searchParams);
 
-  const pageTitle = subcategory?.name || category?.name || 'All Listings';
+  const isAllListings = slug && slug.length === 1 && slug[0] === 'all-listings';
+  const pageTitle = isAllListings ? 'All Listings' : subcategory?.name || category?.name || 'Listings';
   
   return (
     <div className="space-y-8">
@@ -65,7 +66,7 @@ export default async function SearchPage({ params, searchParams }: SearchPagePar
         <Link href="/" className="hover:text-primary flex items-center">
           <Home className="h-4 w-4 mr-1" /> Home
         </Link>
-        {category && (
+        {category && !isAllListings && (
           <>
             <ChevronRight className="h-4 w-4" />
             <Link href={category.href || `/s/${category.id}`} className="hover:text-primary">
@@ -73,12 +74,18 @@ export default async function SearchPage({ params, searchParams }: SearchPagePar
             </Link>
           </>
         )}
-        {subcategory && (
+        {subcategory && !isAllListings && (
           <>
             <ChevronRight className="h-4 w-4" />
             <Link href={subcategory.href || `/s/${category?.id}/${subcategory.id}`} className="hover:text-primary">
               {subcategory.name}
             </Link>
+          </>
+        )}
+        {isAllListings && (
+             <>
+            <ChevronRight className="h-4 w-4" />
+            <span>All Listings</span>
           </>
         )}
       </div>

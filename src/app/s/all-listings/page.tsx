@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 // Simulate fetching all listings
 async function getAllListings(): Promise<Listing[]> {
   await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network delay
-  return placeholderListings;
+  return placeholderListings.filter(listing => listing.status === 'approved'); // Only show approved listings
 }
 
 export default async function AllListingsPage() {
@@ -25,7 +25,7 @@ export default async function AllListingsPage() {
         <ChevronRight className="h-4 w-4" />
         <span>All Listings</span>
       </div>
-      <h1 className="text-3xl font-bold text-foreground">All Listings</h1>
+      <h1 className="text-3xl font-bold text-foreground">All Approved Listings</h1>
       
       <FilterBar />
 
@@ -37,7 +37,7 @@ export default async function AllListingsPage() {
         </div>
       ) : (
         <div className="text-center py-12">
-          <p className="text-xl text-muted-foreground">No listings found currently.</p>
+          <p className="text-xl text-muted-foreground">No approved listings found currently.</p>
         </div>
       )}
 

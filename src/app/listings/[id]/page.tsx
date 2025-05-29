@@ -5,9 +5,10 @@ import type { Listing } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarDays, DollarSign, MapPin, Tag, UserCircle, MessageSquare, ArrowLeft } from 'lucide-react';
+import { CalendarDays, DollarSign, MapPin, Tag, UserCircle, MessageSquare, ArrowLeft, AlertTriangle, CheckCircle } from 'lucide-react';
 import { RecommendationsSection } from '@/components/RecommendationsSection';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ListingPageParams {
   params: { id: string };
@@ -16,7 +17,16 @@ interface ListingPageParams {
 // Simulate fetching a listing by ID
 async function getListing(id: string): Promise<Listing | undefined> {
   await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network delay
-  return placeholderListings.find((listing) => listing.id === id);
+  const listing = placeholderListings.find((listing) => listing.id === id);
+  // In a real app, you might also check auth status here to show non-approved to admin
+  // For now, if not approved, treat as not found for non-admins
+  // This logic could be more sophisticated, e.g. allow admins to see it with status.
+  if (listing && listing.status !== 'approved') {
+    // Simulate admin check - in real app, use actual auth
+    const isAdmin = placeholderUsers[0]?.isAdmin; // Assuming user1 is potential admin
+    if (!isAdmin) return undefined; // Non-admin cannot see non-approved listings
+  }
+  return listing;
 }
 
 export default async function ListingPage({ params }: ListingPageParams) {
@@ -26,7 +36,7 @@ export default async function ListingPage({ params }: ListingPageParams) {
     return (
       <div className="text-center py-20">
         <h1 className="text-2xl font-semibold">Listing not found</h1>
-        <p className="text-muted-foreground">The listing you are looking for does not exist or has been removed.</p>
+        <p className="text-muted-foreground">The listing you are looking for does not exist, has been removed, or is pending review.</p>
         <Button asChild className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90">
           <Link href="/">Go to Homepage</Link>
         </Button>
@@ -38,6 +48,8 @@ export default async function ListingPage({ params }: ListingPageParams) {
   const categoryPath = listing.subcategory 
     ? `${listing.category.name} > ${listing.subcategory.name}` 
     : listing.category.name;
+  
+  const isAdminViewing = placeholderUsers[0]?.isAdmin; // Simulate admin check for special UI
 
   return (
     <div className="max-w-4xl mx-auto py-8">
@@ -47,6 +59,27 @@ export default async function ListingPage({ params }: ListingPageParams) {
           Back to Listings
         </Link>
       </Button>
+
+      {isAdminViewing && listing.status !== 'approved' && (
+        <Alert variant={listing.status === 'pending' ? 'default' : 'destructive'} className="mb-4 bg-yellow-100 border-yellow-400 text-yellow-700 dark:bg-yellow-900 dark:border-yellow-600 dark:text-yellow-300">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Admin View: This listing is currently <strong>{listing.status}</strong>.
+            {listing.status === 'pending' && " It is not visible to the public."}
+            {listing.status === 'rejected' && " It has been rejected and is not visible to the public."}
+          </AlertDescription>
+        </Alert>
+      )}
+       {listing.status === 'sold' && (
+        <Alert variant="default" className="mb-4 bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900 dark:border-blue-600 dark:text-blue-300">
+          <CheckCircle className="h-4 w-4" />
+          <AlertDescription>
+            This item has been marked as <strong>sold</strong>.
+          </AlertDescription>
+        </Alert>
+      )}
+
+
       <Card className="overflow-hidden shadow-lg rounded-lg">
         <CardHeader className="p-0">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-muted/20">
@@ -67,8 +100,8 @@ export default async function ListingPage({ params }: ListingPageParams) {
                 <Image
                   src={src}
                   alt={`${listing.title} - Image ${index + 1}`}
-                  layout="fill"
-                  objectFit="cover"
+                  fill
+                  style={{objectFit: 'cover'}}
                   data-ai-hint="product detail"
                   className="hover:scale-105 transition-transform duration-300"
                 />
@@ -76,7 +109,7 @@ export default async function ListingPage({ params }: ListingPageParams) {
             ))}
              {listing.images.length === 0 && (
                 <div className="md:col-span-2 relative aspect-[16/7] bg-muted flex items-center justify-center">
-                    <Image className="h-24 w-24 text-muted-foreground" data-ai-hint="placeholder image" src="https://placehold.co/600x400.png" alt="Placeholder" layout="fill" objectFit='cover' />
+                    <Image className="h-24 w-24 text-muted-foreground" data-ai-hint="placeholder image" src="https://placehold.co/600x400.png" alt="Placeholder" fill style={{objectFit:'cover'}} />
                 </div>
             )}
           </div>
@@ -123,11 +156,13 @@ export default async function ListingPage({ params }: ListingPageParams) {
                 <p className="font-semibold text-lg text-foreground">{seller.name}</p>
                 <p className="text-sm text-muted-foreground">Joined: {new Date(seller.joinDate).toLocaleDateString()}</p>
               </div>
-              <Button asChild className="sm:ml-auto mt-4 sm:mt-0 w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
-                <Link href={`/messages?listingId=${listing.id}&recipientId=${seller.id}`}>
-                  <MessageSquare className="h-4 w-4 mr-2" /> Contact Seller
-                </Link>
-              </Button>
+              {listing.status !== 'sold' && (
+                <Button asChild className="sm:ml-auto mt-4 sm:mt-0 w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Link href={`/messages?listingId=${listing.id}&recipientId=${seller.id}`}>
+                    <MessageSquare className="h-4 w-4 mr-2" /> Contact Seller
+                  </Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
         </CardContent>

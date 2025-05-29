@@ -1,8 +1,9 @@
+
 'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal, Menu, X, MessageSquare, ListChecks, Settings } from 'lucide-react';
+import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal, Menu, X, MessageSquare, ListChecks, Settings, ShieldCheck } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons/Logo';
@@ -24,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useState, useEffect } from 'react';
 import { mainSiteCategories, secondaryNavCategories, placeholderUsers } from '@/lib/placeholder-data';
-import type { Category } from '@/lib/types';
+import type { Category, User as UserType } from '@/lib/types'; // Renamed User to UserType to avoid conflict
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 
 
@@ -32,16 +33,22 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false); 
-  const [currentUser, setCurrentUser] = useState<typeof placeholderUsers[0] | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null); // Use UserType
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     // Simulate checking auth state
-    // In a real app, replace this with actual authentication logic
-    const authStatus = Math.random() > 0.5; // Randomly set auth status
+    const authStatus = Math.random() > 0.5; 
     setIsAuthenticated(authStatus);
     if (authStatus) {
-      setCurrentUser(placeholderUsers[0]); // Set a demo user if authenticated
+      // For testing admin features, prioritize setting user1 (admin) if auth is true
+      const adminUser = placeholderUsers.find(u => u.isAdmin);
+      const regularUser = placeholderUsers.find(u => !u.isAdmin);
+      // setCurrentUser(adminUser || regularUser || null); // Set admin if available, else regular
+       // To easily test non-admin, uncomment below and comment above
+       setCurrentUser(placeholderUsers[0]); // Default to user1 (admin)
+      // setCurrentUser(placeholderUsers[1]); // Default to user2 (non-admin)
+
     } else {
       setCurrentUser(null);
     }
@@ -50,8 +57,7 @@ export function Header() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
-    // Potentially redirect or show toast
-    router.push('/'); // Redirect to home after logout
+    router.push('/'); 
     alert('Logged out successfully');
   };
 
@@ -78,7 +84,7 @@ export function Header() {
         variant="ghost"
         size="sm"
         className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname.startsWith(item.href || `/s/${item.id}`) ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-primary'} flex items-center`}
-        onClick={isMobile ? (e) => e.preventDefault() : undefined} // Prevent navigation on mobile for dropdown trigger
+        onClick={isMobile ? (e) => e.preventDefault() : undefined} 
       >
         {item.name} <ChevronDown className="h-3 w-3 ml-1" />
       </Button>
@@ -117,7 +123,7 @@ export function Header() {
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{currentUser?.name}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {currentUser?.id}@example.com
+              {currentUser?.id}@example.com {currentUser?.isAdmin && "(Admin)"}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -143,6 +149,13 @@ export function Header() {
               <Settings className="mr-2 h-4 w-4" /> Settings
             </Link>
           </DropdownMenuItem>
+          {currentUser?.isAdmin && (
+            <DropdownMenuItem asChild>
+              <Link href="/admin/dashboard">
+                <ShieldCheck className="mr-2 h-4 w-4" /> Admin Dashboard
+              </Link>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
@@ -183,7 +196,7 @@ export function Header() {
             <DropdownMenuSeparator/>
             <h3 className="font-semibold text-sm px-2 text-muted-foreground pt-2">All Categories</h3>
              {secondaryNavCategories.map((item) => (
-               renderCategoryWithSubcategories(item, true)
+               renderCategoryWithSubcategories(item, true) // Pass true for isMobile
             ))}
 
             <DropdownMenuSeparator/>
@@ -198,7 +211,7 @@ export function Header() {
                   <AvatarFallback>{currentUser.name.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm font-medium">{currentUser.name}</p>
+                  <p className="text-sm font-medium">{currentUser.name} {currentUser?.isAdmin && <span className="text-xs text-primary">(Admin)</span>}</p>
                   <Link href="/profile" className="text-xs text-primary hover:underline" onClick={() => setIsMobileMenuOpen(false)}>View Profile</Link>
                 </div>
               </div>
@@ -206,6 +219,11 @@ export function Header() {
               <Button variant="outline" asChild className="w-full mb-2" onClick={() => setIsMobileMenuOpen(false)}>
                 <Link href="/auth/login">Login / Sign Up</Link>
               </Button>
+            )}
+             {currentUser?.isAdmin && (
+                 <Button variant="outline" asChild className="w-full mb-2" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Link href="/admin/dashboard">Admin Dashboard</Link>
+                 </Button>
             )}
             <Button asChild size="sm" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setIsMobileMenuOpen(false)}>
               <Link href="/listings/new">Post Your Ad</Link>
@@ -292,7 +310,7 @@ export function Header() {
       <div className="bg-secondary border-t border-b border-border hidden md:block">
         <div className="container mx-auto px-4 h-12 flex items-center justify-start md:justify-center space-x-1 md:space-x-3 overflow-x-auto">
           {secondaryNavCategories.map((item) => (
-            renderCategoryWithSubcategories(item)
+            renderCategoryWithSubcategories(item, false) // Pass false for isMobile
           ))}
         </div>
       </div>

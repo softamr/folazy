@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { placeholderCategories } from '@/lib/placeholder-data';
-import type { Category } from '@/lib/types';
+import type { Category, ListingStatus } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImageAnalysisTool } from './ImageAnalysisTool';
 import { Upload, DollarSign, MapPinIcon, TagIcon, ListTree } from 'lucide-react';
@@ -30,7 +30,8 @@ const listingFormSchema = z.object({
   categoryId: z.string().min(1, 'Please select a category'),
   subcategoryId: z.string().optional(),
   location: z.string().min(3, 'Location must be at least 3 characters'),
-  images: z.any().optional(), 
+  images: z.any().optional(),
+  status: z.custom<ListingStatus>().default('pending'), // Added status field
 });
 
 type ListingFormValues = z.infer<typeof listingFormSchema>;
@@ -42,6 +43,7 @@ const defaultValues: Partial<ListingFormValues> = {
   categoryId: '',
   subcategoryId: '',
   location: '',
+  status: 'pending', // Default status for new listings
 };
 
 export function ListingForm() {
@@ -72,8 +74,10 @@ export function ListingForm() {
   }, [watchedCategoryId, form]);
 
   function onSubmit(data: ListingFormValues) {
-    console.log('Form submitted:', data);
-    alert('Listing submitted! (Check console for data)');
+    console.log('Form submitted:', { ...data, status: 'pending' }); // Ensure status is 'pending'
+    alert('Listing submitted for review! (Check console for data)');
+    // In a real app, this data (including the 'pending' status) would be sent to the backend.
+    // The placeholderListings array would be updated on the backend or via a state management solution.
     form.reset();
     setImagePreviews([]);
     setSelectedCategory(null);
@@ -94,7 +98,7 @@ export function ListingForm() {
       <Card className="md:col-span-2">
         <CardHeader>
           <CardTitle>Create a New Listing</CardTitle>
-          <CardDescription>Fill in the details below to post your item for sale.</CardDescription>
+          <CardDescription>Fill in the details below to post your item for sale. It will be reviewed by an admin before going live.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -170,7 +174,7 @@ export function ListingForm() {
                       <Select 
                         onValueChange={(value) => {
                           field.onChange(value);
-                          form.setValue('subcategoryId', ''); // Reset subcategory when main category changes
+                          form.setValue('subcategoryId', ''); 
                         }} 
                         defaultValue={field.value}
                       >
@@ -231,8 +235,7 @@ export function ListingForm() {
                         type="file" 
                         multiple 
                         accept="image/*" 
-                        onChange={handleImageChange} // We call custom handler for previews
-                        // field.onChange is implicitly handled by form.setValue('images', ...) in handleImageChange
+                        onChange={handleImageChange}
                         className="file:text-sm file:font-medium"
                       />
                     </FormControl>
@@ -249,7 +252,7 @@ export function ListingForm() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full sm:w-auto" size="lg">Post Listing</Button>
+              <Button type="submit" className="w-full sm:w-auto" size="lg">Submit for Review</Button>
             </form>
           </Form>
         </CardContent>

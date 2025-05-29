@@ -1,8 +1,8 @@
-import type { Listing, User, Category, PopularCategory, Conversation, Message } from './types';
-import { Car, Building2, Smartphone, Briefcase, Laptop, Sofa, GripVertical, Baby, Puzzle, Shirt, Dog, Factory, UsersIcon, Sparkles, HomeIcon, Tv, Lamp, ShoppingBag, Settings2, MoreHorizontal, MessageSquare, ListChecks, UserCircleIcon } from 'lucide-react';
+import type { Listing, User, Category, PopularCategory, Conversation, Message, ListingStatus } from './types';
+import { Car, Building2, Smartphone, Briefcase, Laptop, Sofa, GripVertical, Baby, Puzzle, Shirt, Dog, Factory, UsersIcon, Sparkles, HomeIcon, Tv, Lamp, ShoppingBag, Settings2, MoreHorizontal, MessageSquare, ListChecks, UserCircleIcon, ShieldCheck } from 'lucide-react';
 
 export const placeholderUsers: User[] = [
-  { id: 'user1', name: 'Alice Wonderland', avatarUrl: 'https://placehold.co/100x100.png', joinDate: '2023-01-15' },
+  { id: 'user1', name: 'Alice Wonderland', avatarUrl: 'https://placehold.co/100x100.png', joinDate: '2023-01-15', isAdmin: true }, // Alice is now an admin
   { id: 'user2', name: 'Bob The Builder', avatarUrl: 'https://placehold.co/100x100.png', joinDate: '2022-11-20' },
   { id: 'user3', name: 'Charlie Brown', avatarUrl: 'https://placehold.co/100x100.png', joinDate: '2023-05-10' },
 ];
@@ -201,7 +201,6 @@ export const popularCategoryData: PopularCategory[] = [
   },
 ];
 
-
 export const placeholderListings: Listing[] = [
   {
     id: 'listing1',
@@ -215,6 +214,7 @@ export const placeholderListings: Listing[] = [
     seller: placeholderUsers[0],
     postedDate: '2024-07-10',
     isFeatured: true,
+    status: 'approved',
   },
   {
     id: 'listing2',
@@ -227,6 +227,7 @@ export const placeholderListings: Listing[] = [
     images: ['https://placehold.co/600x400.png'],
     seller: placeholderUsers[1],
     postedDate: '2024-07-15',
+    status: 'approved',
   },
   {
     id: 'listing3',
@@ -238,6 +239,7 @@ export const placeholderListings: Listing[] = [
     images: ['https://placehold.co/600x400.png'],
     seller: placeholderUsers[0],
     postedDate: '2024-07-18',
+    status: 'pending',
   },
   {
     id: 'listing4',
@@ -250,6 +252,7 @@ export const placeholderListings: Listing[] = [
     seller: placeholderUsers[2],
     postedDate: '2024-07-05',
     isFeatured: true,
+    status: 'approved',
   },
   {
     id: 'listing5',
@@ -262,6 +265,7 @@ export const placeholderListings: Listing[] = [
     images: ['https://placehold.co/600x400.png'],
     seller: placeholderUsers[1],
     postedDate: '2024-07-12',
+    status: 'rejected',
   },
   {
     id: 'listing6',
@@ -274,6 +278,7 @@ export const placeholderListings: Listing[] = [
     images: ['https://placehold.co/600x400.png'],
     seller: placeholderUsers[0],
     postedDate: '2024-07-20',
+    status: 'approved',
   },
   {
     id: 'listing7',
@@ -287,6 +292,7 @@ export const placeholderListings: Listing[] = [
     seller: placeholderUsers[1],
     postedDate: '2024-07-22',
     isFeatured: true,
+    status: 'pending',
   },
   {
     id: 'listing8',
@@ -299,6 +305,7 @@ export const placeholderListings: Listing[] = [
     images: ['https://placehold.co/600x400.png', 'https://placehold.co/600x400.png', 'https://placehold.co/600x400.png'],
     seller: placeholderUsers[2],
     postedDate: '2024-07-19',
+    status: 'approved',
   },
 ];
 

@@ -6,6 +6,7 @@ export type User = {
   name: string;
   avatarUrl?: string;
   joinDate: string;
+  isAdmin?: boolean; // Added for admin role
 };
 
 export interface Category {
@@ -15,6 +16,8 @@ export interface Category {
   subcategories?: Category[]; // For subcategories
   href?: string; // For linking directly, e.g. in PopularCategories
 }
+
+export type ListingStatus = 'pending' | 'approved' | 'rejected' | 'sold'; // Added 'sold'
 
 export type Listing = {
   id: string;
@@ -28,6 +31,7 @@ export type Listing = {
   seller: User;
   postedDate: string;
   isFeatured?: boolean;
+  status: ListingStatus; // Added for ad approval
 };
 
 export type ImageAnalysisResult = {
