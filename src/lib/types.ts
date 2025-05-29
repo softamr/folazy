@@ -1,3 +1,6 @@
+import type React from 'react';
+import type { LucideIcon } from 'lucide-react';
+
 export type User = {
   id: string;
   name: string;
@@ -8,6 +11,7 @@ export type User = {
 export type Category = {
   id: string;
   name: string;
+  icon?: LucideIcon; // Optional icon for main categories
 };
 
 export type Listing = {
@@ -26,4 +30,17 @@ export type Listing = {
 export type ImageAnalysisResult = {
   isAuthentic: boolean;
   issues: string[];
+};
+
+export type PopularCategoryLink = {
+  name: string;
+  href: string;
+};
+
+export type PopularCategory = {
+  id: string;
+  name: string;
+  icon: LucideIcon;
+  subLinks: PopularCategoryLink[];
+  allLink: PopularCategoryLink;
 };
