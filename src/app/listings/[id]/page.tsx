@@ -1,10 +1,11 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import { placeholderListings, placeholderUsers } from '@/lib/placeholder-data';
 import type { Listing } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarDays, DollarSign, MapPin, Tag, UserCircle, MessageSquare } from 'lucide-react';
+import { CalendarDays, DollarSign, MapPin, Tag, UserCircle, MessageSquare, ArrowLeft } from 'lucide-react';
 import { RecommendationsSection } from '@/components/RecommendationsSection';
 import { Badge } from '@/components/ui/badge';
 
@@ -27,16 +28,25 @@ export default async function ListingPage({ params }: ListingPageParams) {
         <h1 className="text-2xl font-semibold">Listing not found</h1>
         <p className="text-muted-foreground">The listing you are looking for does not exist or has been removed.</p>
         <Button asChild className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90">
-          <a href="/">Go to Homepage</a>
+          <Link href="/">Go to Homepage</Link>
         </Button>
       </div>
     );
   }
 
   const seller = listing.seller || placeholderUsers[0]; // Fallback seller
+  const categoryPath = listing.subcategory 
+    ? `${listing.category.name} > ${listing.subcategory.name}` 
+    : listing.category.name;
 
   return (
     <div className="max-w-4xl mx-auto py-8">
+       <Button variant="outline" asChild className="mb-4">
+        <Link href="/">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Listings
+        </Link>
+      </Button>
       <Card className="overflow-hidden shadow-lg rounded-lg">
         <CardHeader className="p-0">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-muted/20">
@@ -87,7 +97,7 @@ export default async function ListingPage({ params }: ListingPageParams) {
             </div>
             <div className="flex items-center">
               <Tag className="h-4 w-4 mr-2 shrink-0 text-primary" />
-              <span>{listing.category.name}</span>
+              <span>{categoryPath}</span>
             </div>
             <div className="flex items-center col-span-1 sm:col-span-2">
               <CalendarDays className="h-4 w-4 mr-2 shrink-0 text-primary" />
@@ -113,8 +123,10 @@ export default async function ListingPage({ params }: ListingPageParams) {
                 <p className="font-semibold text-lg text-foreground">{seller.name}</p>
                 <p className="text-sm text-muted-foreground">Joined: {new Date(seller.joinDate).toLocaleDateString()}</p>
               </div>
-              <Button className="sm:ml-auto mt-4 sm:mt-0 w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
-                <MessageSquare className="h-4 w-4 mr-2" /> Contact Seller
+              <Button asChild className="sm:ml-auto mt-4 sm:mt-0 w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+                <Link href={`/messages?listingId=${listing.id}&recipientId=${seller.id}`}>
+                  <MessageSquare className="h-4 w-4 mr-2" /> Contact Seller
+                </Link>
               </Button>
             </CardContent>
           </Card>

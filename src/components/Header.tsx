@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal, Menu, X, MessageSquare, ListChecks, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons/Logo';
@@ -14,45 +14,233 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useState, useEffect } from 'react';
-import { mainSiteCategories } from '@/lib/placeholder-data';
+import { mainSiteCategories, secondaryNavCategories, placeholderUsers } from '@/lib/placeholder-data';
+import type { Category } from '@/lib/types';
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+
 
 export function Header() {
   const pathname = usePathname();
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // Simulate auth
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false); 
+  const [currentUser, setCurrentUser] = useState<typeof placeholderUsers[0] | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Simulate checking auth state on client, replace with actual auth logic
-    // setIsAuthenticated(localStorage.getItem('isAuthenticated') === 'true');
+    // Simulate checking auth state
+    // In a real app, replace this with actual authentication logic
+    const authStatus = Math.random() > 0.5; // Randomly set auth status
+    setIsAuthenticated(authStatus);
+    if (authStatus) {
+      setCurrentUser(placeholderUsers[0]); // Set a demo user if authenticated
+    } else {
+      setCurrentUser(null);
+    }
   }, []);
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    // localStorage.removeItem('isAuthenticated');
+    setCurrentUser(null);
     // Potentially redirect or show toast
+    router.push('/'); // Redirect to home after logout
+    alert('Logged out successfully');
   };
 
-  const topNavItems = mainSiteCategories.filter(cat => cat.id === 'vehicles' || cat.id === 'properties');
-  const mainNavItems = mainSiteCategories.filter(cat => cat.id !== 'vehicles' && cat.id !== 'properties');
+  const NavLink = ({ href, children, className }: { href: string, children: React.ReactNode, className?: string }) => (
+    <Link href={href} passHref>
+      <Button
+        variant="ghost"
+        size="sm"
+        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname === href ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-primary'} ${className}`}
+        onClick={() => setIsMobileMenuOpen(false)}
+      >
+        {children}
+      </Button>
+    </Link>
+  );
+
+  const renderCategoryWithSubcategories = (item: Category, isMobile: boolean = false) => {
+    if (!item.subcategories || item.subcategories.length === 0) {
+      return <NavLink key={item.id} href={item.href || `/s/${item.id}`}>{item.name}</NavLink>;
+    }
+
+    const TriggerComponent = (
+      <Button
+        variant="ghost"
+        size="sm"
+        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname.startsWith(item.href || `/s/${item.id}`) ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-primary'} flex items-center`}
+        onClick={isMobile ? (e) => e.preventDefault() : undefined} // Prevent navigation on mobile for dropdown trigger
+      >
+        {item.name} <ChevronDown className="h-3 w-3 ml-1" />
+      </Button>
+    );
+
+    return (
+      <DropdownMenu key={item.id}>
+        <DropdownMenuTrigger asChild>{TriggerComponent}</DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuItem asChild>
+            <Link href={item.href || `/s/${item.id}`} className="font-semibold">All in {item.name}</Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {item.subcategories.map((subItem) => (
+            <DropdownMenuItem key={subItem.id} asChild>
+              <Link href={subItem.href || `/s/${item.id}/${subItem.id}`}>{subItem.name}</Link>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
+  const UserMenu = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+          <Avatar className="h-9 w-9">
+            <AvatarImage src={currentUser?.avatarUrl || "https://placehold.co/100x100.png"} alt="User Avatar" data-ai-hint="avatar person"/>
+            <AvatarFallback>{currentUser?.name.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{currentUser?.name}</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {currentUser?.id}@example.com
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem asChild>
+            <Link href="/profile">
+              <UserCircle className="mr-2 h-4 w-4" /> Profile
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/profile?tab=listings"> 
+              <ListChecks className="mr-2 h-4 w-4" /> My Listings
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/messages">
+              <MessageSquare className="mr-2 h-4 w-4" /> Messages
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/profile?tab=settings">
+              <Settings className="mr-2 h-4 w-4" /> Settings
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout}>
+           Log out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+  
+  const MobileNav = () => (
+    <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="icon" className="md:hidden">
+          <Menu className="h-6 w-6" />
+          <span className="sr-only">Open menu</span>
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="left" className="w-[280px] p-0">
+        <div className="flex flex-col h-full">
+          <div className="p-4 border-b">
+            <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
+              <Logo />
+            </Link>
+          </div>
+          <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
+            <h3 className="font-semibold text-sm px-2 text-muted-foreground">Top Categories</h3>
+            {mainSiteCategories.map((item) => {
+              const Icon = item.icon as LucideIcon;
+              return (
+              <Button key={item.id} variant="ghost" asChild className="w-full justify-start text-foreground hover:text-primary" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href={item.href || `/s/${item.id}`}>
+                  {Icon && <Icon className="h-4 w-4 mr-2" />}
+                  {item.name}
+                </Link>
+              </Button>
+              );
+            })}
+            <DropdownMenuSeparator/>
+            <h3 className="font-semibold text-sm px-2 text-muted-foreground pt-2">All Categories</h3>
+             {secondaryNavCategories.map((item) => (
+               renderCategoryWithSubcategories(item, true)
+            ))}
+
+            <DropdownMenuSeparator/>
+             <Button variant="ghost" size="sm" className="w-full justify-start text-sm">العربية</Button>
+
+          </nav>
+          <div className="p-4 border-t mt-auto">
+            {isAuthenticated && currentUser ? (
+              <div className="flex items-center gap-2 mb-2">
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={currentUser.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser.name} data-ai-hint="avatar person"/>
+                  <AvatarFallback>{currentUser.name.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium">{currentUser.name}</p>
+                  <Link href="/profile" className="text-xs text-primary hover:underline" onClick={() => setIsMobileMenuOpen(false)}>View Profile</Link>
+                </div>
+              </div>
+            ) : (
+              <Button variant="outline" asChild className="w-full mb-2" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link href="/auth/login">Login / Sign Up</Link>
+              </Button>
+            )}
+            <Button asChild size="sm" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setIsMobileMenuOpen(false)}>
+              <Link href="/listings/new">Post Your Ad</Link>
+            </Button>
+             {isAuthenticated && (
+                <Button variant="ghost" onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="w-full mt-2">
+                  Log out
+                </Button>
+              )}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
 
 
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50">
       {/* Top Bar */}
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 shrink-0">
-          <Logo />
-        </Link>
+        <div className="flex items-center gap-2">
+          <div className="md:hidden">
+            <MobileNav />
+          </div>
+          <Link href="/" className="flex items-center gap-2 shrink-0">
+            <Logo />
+          </Link>
+        </div>
 
         <div className="hidden md:flex items-center gap-2 ml-4">
-          {topNavItems.map((item) => {
-            const Icon = item.icon as LucideIcon; // Type assertion
+          {mainSiteCategories.map((item) => {
+            const Icon = item.icon as LucideIcon;
             return (
             <Button key={item.id} variant="ghost" asChild className="text-sm font-medium text-foreground hover:text-primary">
-              <Link href={`/category/${item.id}`}>
+              <Link href={item.href || `/s/${item.id}`}>
                 {Icon && <Icon className="h-4 w-4 mr-1" />}
                 {item.name}
               </Link>
@@ -87,63 +275,24 @@ export function Header() {
         
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" size="sm" className="text-sm hidden md:inline-flex">العربية</Button>
-          {isAuthenticated ? (
-             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src="https://placehold.co/100x100.png" alt="User Avatar" data-ai-hint="avatar person"/>
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">User Name</p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      user@example.com
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile">
-                    <UserCircle className="mr-2 h-4 w-4" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  {/* <LogOut className="mr-2 h-4 w-4" /> */}
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {isAuthenticated && currentUser ? (
+             <UserMenu />
           ) : (
-            <Button variant="ghost" asChild size="sm" className="text-sm">
+            <Button variant="ghost" asChild size="sm" className="text-sm hidden md:inline-flex">
               <Link href="/auth/login">Login</Link>
             </Button>
           )}
-          <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground hidden md:inline-flex">
             <Link href="/listings/new">Post Your Ad</Link>
           </Button>
         </div>
       </div>
 
       {/* Main Navigation Bar */}
-      <div className="bg-secondary border-t border-b border-border">
+      <div className="bg-secondary border-t border-b border-border hidden md:block">
         <div className="container mx-auto px-4 h-12 flex items-center justify-start md:justify-center space-x-1 md:space-x-3 overflow-x-auto">
-          {mainNavItems.map((item) => (
-            <Button
-              key={item.id}
-              variant="ghost"
-              asChild
-              size="sm"
-              className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname === `/category/${item.id}` ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-primary'}`}
-            >
-              <Link href={`/category/${item.id}`}>{item.name}</Link>
-            </Button>
+          {secondaryNavCategories.map((item) => (
+            renderCategoryWithSubcategories(item)
           ))}
         </div>
       </div>

@@ -17,18 +17,20 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { placeholderCategories } from '@/lib/placeholder-data';
+import type { Category } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImageAnalysisTool } from './ImageAnalysisTool';
-import { Upload, DollarSign, MapPinIcon, TagIcon } from 'lucide-react';
-import { useState } from 'react';
+import { Upload, DollarSign, MapPinIcon, TagIcon, ListTree } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 const listingFormSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters').max(100, 'Title must be 100 characters or less'),
   description: z.string().min(20, 'Description must be at least 20 characters').max(1000, 'Description must be 1000 characters or less'),
   price: z.coerce.number().positive('Price must be a positive number'),
   categoryId: z.string().min(1, 'Please select a category'),
+  subcategoryId: z.string().optional(),
   location: z.string().min(3, 'Location must be at least 3 characters'),
-  images: z.any().optional(), // Using any for FileList, actual validation might be more complex
+  images: z.any().optional(), 
 });
 
 type ListingFormValues = z.infer<typeof listingFormSchema>;
@@ -38,6 +40,7 @@ const defaultValues: Partial<ListingFormValues> = {
   description: '',
   price: undefined,
   categoryId: '',
+  subcategoryId: '',
   location: '',
 };
 
@@ -49,14 +52,32 @@ export function ListingForm() {
   });
 
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [subcategories, setSubcategories] = useState<Category[]>([]);
+
+  const watchedCategoryId = form.watch('categoryId');
+
+  useEffect(() => {
+    if (watchedCategoryId) {
+      const category = placeholderCategories.find(cat => cat.id === watchedCategoryId);
+      setSelectedCategory(category || null);
+      setSubcategories(category?.subcategories || []);
+      if (form.getValues('subcategoryId') && !category?.subcategories?.find(sc => sc.id === form.getValues('subcategoryId'))) {
+        form.setValue('subcategoryId', ''); // Reset subcategory if it's no longer valid for the new main category
+      }
+    } else {
+      setSelectedCategory(null);
+      setSubcategories([]);
+    }
+  }, [watchedCategoryId, form]);
 
   function onSubmit(data: ListingFormValues) {
-    // TODO: Handle form submission, e.g., API call
     console.log('Form submitted:', data);
-    // For now, reset form or show success message
     alert('Listing submitted! (Check console for data)');
     form.reset();
     setImagePreviews([]);
+    setSelectedCategory(null);
+    setSubcategories([]);
   }
   
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,11 +85,9 @@ export function ListingForm() {
       const filesArray = Array.from(event.target.files);
       const previews = filesArray.map(file => URL.createObjectURL(file));
       setImagePreviews(previews);
-      // You might want to set the files to the form data here if needed
-      // form.setValue('images', event.target.files);
+      form.setValue('images', event.target.files);
     }
   };
-
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -128,14 +147,36 @@ export function ListingForm() {
                 />
                 <FormField
                   control={form.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center"><MapPinIcon className="h-4 w-4 mr-1"/>Location</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., City, State" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
                   name="categoryId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="flex items-center"><TagIcon className="h-4 w-4 mr-1"/>Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select 
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          form.setValue('subcategoryId', ''); // Reset subcategory when main category changes
+                        }} 
+                        defaultValue={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a category" />
+                            <SelectValue placeholder="Select a main category" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -150,24 +191,39 @@ export function ListingForm() {
                     </FormItem>
                   )}
                 />
-              </div>
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center"><MapPinIcon className="h-4 w-4 mr-1"/>Location</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., City, State" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                {selectedCategory && subcategories.length > 0 && (
+                  <FormField
+                    control={form.control}
+                    name="subcategoryId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center"><ListTree className="h-4 w-4 mr-1"/>Subcategory</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={`Select subcategory for ${selectedCategory.name}`} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="">No subcategory / General</SelectItem>
+                            {subcategories.map((subcat) => (
+                              <SelectItem key={subcat.id} value={subcat.id}>
+                                {subcat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
+              </div>
+              
               <FormField
                 control={form.control}
                 name="images"
-                render={({ field }) => ( // field is not directly used for file input value in controlled manner
+                render={({ field }) => ( 
                   <FormItem>
                     <FormLabel className="flex items-center"><Upload className="h-4 w-4 mr-1"/>Upload Images</FormLabel>
                     <FormControl>
@@ -175,10 +231,8 @@ export function ListingForm() {
                         type="file" 
                         multiple 
                         accept="image/*" 
-                        onChange={(e) => {
-                          field.onChange(e.target.files); // Store FileList in form state
-                          handleImageChange(e); // Update previews
-                        }}
+                        onChange={handleImageChange} // We call custom handler for previews
+                        // field.onChange is implicitly handled by form.setValue('images', ...) in handleImageChange
                         className="file:text-sm file:font-medium"
                       />
                     </FormControl>

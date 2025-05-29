@@ -11,12 +11,16 @@ interface ListingCardProps {
 }
 
 export function ListingCard({ listing }: ListingCardProps) {
+  const categoryPath = listing.subcategory 
+    ? `${listing.category.name} / ${listing.subcategory.name}` 
+    : listing.category.name;
+
   return (
     <Card className="flex flex-col h-full overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200 rounded-md">
       <CardHeader className="p-0 relative">
         <Link href={`/listings/${listing.id}`} className="block aspect-[4/3] relative">
           <Image
-            src={listing.images[0]}
+            src={listing.images[0] || 'https://placehold.co/600x400.png'} // Fallback image
             alt={listing.title}
             layout="fill"
             objectFit="cover"
@@ -42,9 +46,9 @@ export function ListingCard({ listing }: ListingCardProps) {
             <MapPin className="h-3 w-3 mr-1 shrink-0" />
             <span className="truncate">{listing.location}</span>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center" title={categoryPath}>
             <Tag className="h-3 w-3 mr-1 shrink-0" />
-            <span className="truncate">{listing.category.name}</span>
+            <span className="truncate">{categoryPath}</span>
           </div>
         </div>
       </CardContent>
