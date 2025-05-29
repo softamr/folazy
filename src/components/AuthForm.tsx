@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
-  FormDescription, // Added FormDescription here
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -18,19 +18,25 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { LogIn, UserPlus, Mail, Lock } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, User as UserIcon } from 'lucide-react'; // Added UserIcon
 import { useState } from 'react';
-import { auth } from '@/lib/firebase'; // Import Firebase auth
+import { auth, db } from '@/lib/firebase'; // Import Firebase auth and db
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   type AuthError
 } from 'firebase/auth';
-import { useToast } from '@/hooks/use-toast'; // Import useToast
+import { doc, setDoc } from "firebase/firestore"; // Import Firestore functions
+import { useToast } from '@/hooks/use-toast';
+import type { User } from '@/lib/types';
+
 
 const createLoginSchema = (isSignup: boolean) => z.object({
+  name: isSignup 
+    ? z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name cannot exceed 50 characters')
+    : z.string().optional(),
   email: z.string().email('Invalid email address'),
-  password: z.string().min(isSignup ? 8 : 6, `Password must be at least ${isSignup ? 8 : 6} characters`), // Firebase min password is 6
+  password: z.string().min(isSignup ? 8 : 6, `Password must be at least ${isSignup ? 8 : 6} characters`),
   confirmPassword: isSignup 
     ? z.string().min(8, 'Password must be at least 8 characters') 
     : z.string().optional(),
@@ -47,7 +53,7 @@ interface AuthFormProps {
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast(); // Initialize useToast
+  const { toast } = useToast(); 
 
   const isSignup = mode === 'signup';
   const authFormSchema = createLoginSchema(isSignup);
@@ -56,6 +62,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(authFormSchema),
     defaultValues: {
+      name: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -74,7 +81,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         break;
       case 'auth/user-not-found':
       case 'auth/wrong-password':
-      case 'auth/invalid-credential': // General invalid credential error
+      case 'auth/invalid-credential': 
         message = 'Invalid email or password.';
         break;
       case 'auth/email-already-in-use':
@@ -85,7 +92,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         break;
       default:
         console.error(`${mode} error:`, error);
-        message = error.message || message; // Use Firebase message if available
+        message = error.message || message; 
     }
     toast({
       title: `${isSignup ? 'Signup' : 'Login'} Failed`,
@@ -98,7 +105,25 @@ export function AuthForm({ mode }: AuthFormProps) {
     setIsLoading(true);
     try {
       if (isSignup) {
-        await createUserWithEmailAndPassword(auth, data.email, data.password);
+        if (!data.name) { // Should be caught by Zod, but good to double check
+          toast({ title: 'Signup Failed', description: 'Name is required.', variant: 'destructive' });
+          setIsLoading(false);
+          return;
+        }
+        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        const firebaseUser = userCredential.user;
+
+        // Create user document in Firestore
+        const userDocData: User = {
+          id: firebaseUser.uid, // Use UID as the document ID and the id field
+          name: data.name,
+          email: data.email,
+          joinDate: new Date().toISOString(),
+          isAdmin: false, // Default for new users
+          avatarUrl: '', // Default avatar or let user upload later
+        };
+        await setDoc(doc(db, "users", firebaseUser.uid), userDocData);
+        
         toast({
           title: 'Signup Successful!',
           description: 'You have successfully created an account. Redirecting...',
@@ -110,7 +135,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           description: 'Welcome back! Redirecting...',
         });
       }
-      router.push('/profile'); // Redirect to profile page after login/signup
+      router.push('/profile'); 
     } catch (error) {
       handleFirebaseAuthError(error as AuthError);
     } finally {
@@ -131,6 +156,21 @@ export function AuthForm({ mode }: AuthFormProps) {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {isSignup && (
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center"><UserIcon className="h-4 w-4 mr-2 text-muted-foreground"/>Full Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John Doe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <FormField
               control={form.control}
               name="email"
@@ -200,3 +240,4 @@ export function AuthForm({ mode }: AuthFormProps) {
     </Card>
   );
 }
+

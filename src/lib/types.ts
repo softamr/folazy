@@ -1,12 +1,14 @@
+
 import type React from 'react';
 import type { LucideIcon } from 'lucide-react';
 
 export type User = {
-  id: string;
+  id: string; // This will be the uid from Firebase Auth
   name: string;
+  email: string; // Added email field
   avatarUrl?: string;
   joinDate: string;
-  isAdmin?: boolean; // Added for admin role
+  isAdmin?: boolean;
 };
 
 export interface Category {
@@ -72,3 +74,4 @@ export type Conversation = {
   lastMessage: Message;
   unreadCount: number;
 };
+
