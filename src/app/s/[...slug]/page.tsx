@@ -1,7 +1,7 @@
 // src/app/s/[...slug]/page.tsx
 import { ListingCard } from '@/components/ListingCard';
 import { FilterBar } from '@/components/FilterBar';
-import { placeholderListings, placeholderCategories } from '@/lib/placeholder-data';
+import { placeholderListings, placeholderCategories_DEPRECATED } from '@/lib/placeholder-data';
 import type { Listing, Category } from '@/lib/types';
 import { ChevronRight, Home } from 'lucide-react';
 import Link from 'next/link';
@@ -22,7 +22,7 @@ async function getFilteredListings(slug: string[], searchParams: any): Promise<{
 
   if (slug && slug.length > 0 && slug[0] !== 'all-listings') {
     const mainCategorySlug = slug[0];
-    category = placeholderCategories.find(c => c.id === mainCategorySlug);
+    category = placeholderCategories_DEPRECATED.find(c => c.id === mainCategorySlug);
 
     if (category) {
       currentListings = currentListings.filter(l => l.category.id === category!.id);

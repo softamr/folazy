@@ -24,7 +24,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useState, useEffect, useCallback } from 'react';
-// import { mainSiteCategories, secondaryNavCategories, placeholderCategories } from '@/lib/placeholder-data'; // No longer used for categories
+// import { mainSiteCategories_DEPRECATED, secondaryNavCategories_DEPRECATED, placeholderCategories_DEPRECATED } from '@/lib/placeholder-data'; // No longer used for categories
 import type { Category, User as UserType, IconMapping } from '@/lib/types';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -33,6 +33,7 @@ import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase
 import { doc, getDoc, collection, getDocs, query as firestoreQuery, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import * as Icons from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton'; // Added Skeleton import
 
 // Simple translation dictionary
 const translations = {
@@ -231,7 +232,7 @@ export function Header() {
       <Button
         variant="ghost"
         size="sm"
-        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname === href ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-accent-foreground hover:bg-accent'} ${className || ''}`}
+        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname === href ? 'text-primary font-semibold' : 'text-secondary-foreground hover:bg-accent hover:text-accent-foreground'} ${className || ''}`}
         onClick={() => setIsMobileMenuOpen(false)}
       >
         {children}
@@ -246,7 +247,7 @@ export function Header() {
 
     if (!item.subcategories || item.subcategories.length === 0) {
       return (
-        <NavLink key={item.id} href={categoryHref} className={isMobile ? "w-full justify-start" : ""}>
+        <NavLink key={item.id} href={categoryHref} className={`${isMobile ? "w-full justify-start" : ""} ${pathname === categoryHref ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-accent-foreground hover:bg-accent'}`}>
            {isMobile && <IconComponent className="h-4 w-4 me-2" />}
            {categoryName}
         </NavLink>
@@ -257,7 +258,7 @@ export function Header() {
       <Button
         variant="ghost"
         size="sm"
-        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname.startsWith(categoryHref) ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-accent-foreground hover:bg-accent'} flex items-center ${isMobile ? "w-full justify-between" : ""}`}
+        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname.startsWith(categoryHref) ? 'text-primary font-semibold' : 'text-secondary-foreground hover:bg-accent hover:text-accent-foreground'} flex items-center ${isMobile ? "w-full justify-between" : ""}`}
         onClick={isMobile ? (e) => e.preventDefault() : undefined}
       >
         <div className="flex items-center">
@@ -453,7 +454,7 @@ export function Header() {
             {moreCategories.length > 0 && (
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-xs sm:text-sm font-medium whitespace-nowrap text-secondary-foreground hover:text-accent-foreground hover:bg-accent flex items-center">
+                        <Button variant="ghost" size="sm" className="text-xs sm:text-sm font-medium whitespace-nowrap text-secondary-foreground hover:bg-accent hover:text-accent-foreground flex items-center">
                             {t.more} <ChevronDown className="h-3 w-3 ms-1" />
                         </Button>
                     </DropdownMenuTrigger>
@@ -471,3 +472,4 @@ export function Header() {
     </header>
   );
 }
+

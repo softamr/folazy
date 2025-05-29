@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { placeholderCategories } from '@/lib/placeholder-data';
+import { placeholderCategories_DEPRECATED } from '@/lib/placeholder-data'; // Updated import
 import { Filter, Search, X } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -48,7 +48,7 @@ export function FilterBar() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_CATEGORIES_VALUE}>All Categories</SelectItem>
-              {placeholderCategories.map((cat) => (
+              {placeholderCategories_DEPRECATED.map((cat) => ( // Updated usage
                 <SelectItem key={cat.id} value={cat.id}>
                   {cat.name}
                 </SelectItem>
