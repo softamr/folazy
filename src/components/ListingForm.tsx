@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,6 +47,8 @@ const defaultValues: Partial<ListingFormValues> = {
   status: 'pending', // Default status for new listings
 };
 
+const NO_SUBCATEGORY_VALUE = "_none_"; // Define a constant for the "no subcategory" option
+
 export function ListingForm() {
   const form = useForm<ListingFormValues>({
     resolver: zodResolver(listingFormSchema),
@@ -64,8 +67,10 @@ export function ListingForm() {
       const category = placeholderCategories.find(cat => cat.id === watchedCategoryId);
       setSelectedCategory(category || null);
       setSubcategories(category?.subcategories || []);
-      if (form.getValues('subcategoryId') && !category?.subcategories?.find(sc => sc.id === form.getValues('subcategoryId'))) {
-        form.setValue('subcategoryId', ''); // Reset subcategory if it's no longer valid for the new main category
+      // Reset subcategory if the current one isn't valid for the new main category
+      const currentSubcategoryId = form.getValues('subcategoryId');
+      if (currentSubcategoryId && !category?.subcategories?.find(sc => sc.id === currentSubcategoryId)) {
+        form.setValue('subcategoryId', ''); 
       }
     } else {
       setSelectedCategory(null);
@@ -74,10 +79,14 @@ export function ListingForm() {
   }, [watchedCategoryId, form]);
 
   function onSubmit(data: ListingFormValues) {
-    console.log('Form submitted:', { ...data, status: 'pending' }); // Ensure status is 'pending'
+    const submissionData = {
+      ...data,
+      // Ensure subcategoryId is an empty string if NO_SUBCATEGORY_VALUE was the placeholder
+      subcategoryId: data.subcategoryId === NO_SUBCATEGORY_VALUE ? '' : data.subcategoryId,
+      status: 'pending'
+    };
+    console.log('Form submitted:', submissionData); 
     alert('Listing submitted for review! (Check console for data)');
-    // In a real app, this data (including the 'pending' status) would be sent to the backend.
-    // The placeholderListings array would be updated on the backend or via a state management solution.
     form.reset();
     setImagePreviews([]);
     setSelectedCategory(null);
@@ -87,8 +96,10 @@ export function ListingForm() {
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
-      const previews = filesArray.map(file => URL.createObjectURL(file));
-      setImagePreviews(previews);
+      // Free up memory from previous previews
+      imagePreviews.forEach(previewUrl => URL.revokeObjectURL(previewUrl));
+      const newPreviews = filesArray.map(file => URL.createObjectURL(file));
+      setImagePreviews(newPreviews);
       form.setValue('images', event.target.files);
     }
   };
@@ -174,7 +185,7 @@ export function ListingForm() {
                       <Select 
                         onValueChange={(value) => {
                           field.onChange(value);
-                          form.setValue('subcategoryId', ''); 
+                          form.setValue('subcategoryId', ''); // Reset subcategory when main category changes
                         }} 
                         defaultValue={field.value}
                       >
@@ -202,14 +213,23 @@ export function ListingForm() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="flex items-center"><ListTree className="h-4 w-4 mr-1"/>Subcategory</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || ""}>
+                        <Select
+                          onValueChange={(value) => {
+                            // If "No subcategory" is selected, store an empty string in the form
+                            // Otherwise, store the actual subcategory ID
+                            field.onChange(value === NO_SUBCATEGORY_VALUE ? '' : value);
+                          }}
+                          // If field.value is empty (no subcategory selected), use NO_SUBCATEGORY_VALUE for Select's value
+                          // to show "No subcategory / General" as selected. Otherwise, use the actual field.value.
+                          value={field.value || NO_SUBCATEGORY_VALUE}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder={`Select subcategory for ${selectedCategory.name}`} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="">No subcategory / General</SelectItem>
+                            <SelectItem value={NO_SUBCATEGORY_VALUE}>No subcategory / General</SelectItem>
                             {subcategories.map((subcat) => (
                               <SelectItem key={subcat.id} value={subcat.id}>
                                 {subcat.name}
@@ -236,6 +256,8 @@ export function ListingForm() {
                         multiple 
                         accept="image/*" 
                         onChange={handleImageChange}
+                        // Remove value from controlled file input
+                        // value={undefined} 
                         className="file:text-sm file:font-medium"
                       />
                     </FormControl>
