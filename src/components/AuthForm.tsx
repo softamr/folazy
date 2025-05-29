@@ -1,15 +1,15 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // For App Router
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -19,16 +19,23 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { LogIn, UserPlus, Mail, Lock } from 'lucide-react';
 import { useState } from 'react';
+import { auth } from '@/lib/firebase'; // Import Firebase auth
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  type AuthError
+} from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast'; // Import useToast
 
 const createLoginSchema = (isSignup: boolean) => z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(isSignup ? 8 : 6, `Password must be at least ${isSignup ? 8 : 6} characters`), // Firebase min password is 6
   confirmPassword: isSignup 
     ? z.string().min(8, 'Password must be at least 8 characters') 
     : z.string().optional(),
 }).refine(data => !isSignup || data.password === data.confirmPassword, {
   message: "Passwords don't match",
-  path: ["confirmPassword"], // path to field that gets the error
+  path: ["confirmPassword"],
 });
 
 
@@ -39,6 +46,7 @@ interface AuthFormProps {
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast(); // Initialize useToast
 
   const isSignup = mode === 'signup';
   const authFormSchema = createLoginSchema(isSignup);
@@ -54,19 +62,59 @@ export function AuthForm({ mode }: AuthFormProps) {
     mode: 'onChange',
   });
 
+  const handleFirebaseAuthError = (error: AuthError) => {
+    let message = 'An unexpected error occurred. Please try again.';
+    switch (error.code) {
+      case 'auth/invalid-email':
+        message = 'Invalid email address format.';
+        break;
+      case 'auth/user-disabled':
+        message = 'This user account has been disabled.';
+        break;
+      case 'auth/user-not-found':
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential': // General invalid credential error
+        message = 'Invalid email or password.';
+        break;
+      case 'auth/email-already-in-use':
+        message = 'This email address is already in use.';
+        break;
+      case 'auth/weak-password':
+        message = 'Password is too weak. It must be at least 6 characters long.';
+        break;
+      default:
+        console.error(`${mode} error:`, error);
+        message = error.message || message; // Use Firebase message if available
+    }
+    toast({
+      title: `${isSignup ? 'Signup' : 'Login'} Failed`,
+      description: message,
+      variant: 'destructive',
+    });
+  };
+
   async function onSubmit(data: AuthFormValues) {
     setIsLoading(true);
-    console.log(`${mode} submitted:`, data);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Simulate successful authentication
-    // In a real app: set auth token in localStorage/cookie, update global auth state
-    // localStorage.setItem('isAuthenticated', 'true'); 
-    
-    setIsLoading(false);
-    alert(`${isSignup ? 'Signup' : 'Login'} successful! Redirecting...`);
-    router.push('/profile'); // Redirect to profile page after login/signup
+    try {
+      if (isSignup) {
+        await createUserWithEmailAndPassword(auth, data.email, data.password);
+        toast({
+          title: 'Signup Successful!',
+          description: 'You have successfully created an account. Redirecting...',
+        });
+      } else {
+        await signInWithEmailAndPassword(auth, data.email, data.password);
+        toast({
+          title: 'Login Successful!',
+          description: 'Welcome back! Redirecting...',
+        });
+      }
+      router.push('/profile'); // Redirect to profile page after login/signup
+    } catch (error) {
+      handleFirebaseAuthError(error as AuthError);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -104,6 +152,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                   <FormControl>
                     <Input type="password" placeholder="••••••••" {...field} />
                   </FormControl>
+                   {isSignup && <FormDescription>Password must be at least 8 characters.</FormDescription>}
                   <FormMessage />
                 </FormItem>
               )}
