@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { placeholderCategories } from '@/lib/placeholder-data';
-import type { Category, ListingStatus, User, Listing as ListingType } from '@/lib/types';
+import type { Category, ListingStatus, User, Listing as ListingType, ListingCategoryInfo } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImageAnalysisTool } from './ImageAnalysisTool';
 import { Upload, DollarSign, MapPinIcon, TagIcon, ListTree, Loader2 } from 'lucide-react';
@@ -104,13 +104,15 @@ export function ListingForm() {
       if (userDocSnap.exists()) {
         seller = userDocSnap.data() as User;
       } else {
+        // This is a fallback, ideally the user document should always exist for a logged-in user
+        // If it doesn't, it might indicate an issue during signup or data inconsistency
         seller = {
           id: currentUser.uid,
           name: currentUser.displayName || "Anonymous User",
-          email: currentUser.email || "",
+          email: currentUser.email || "", // Ensure email is part of the User type and available
           avatarUrl: currentUser.photoURL || "",
-          joinDate: new Date().toISOString(),
-          isAdmin: false,
+          joinDate: new Date().toISOString(), // Or from currentUser.metadata.creationTime
+          isAdmin: false, // Default to false if not found
         };
       }
 
@@ -124,7 +126,9 @@ export function ListingForm() {
         subCategoryData = mainCategoryData.subcategories?.find(sc => sc.id === data.subcategoryId);
       }
       
+      // Placeholder for image URLs - actual upload to Firebase Storage needs to be implemented
       const imageUrls: string[] = []; 
+      // TODO: Implement image upload to Firebase Storage and get URLs
 
       const newListingData: Omit<ListingType, 'id'> = {
         title: data.title,
@@ -133,11 +137,11 @@ export function ListingForm() {
         category: { id: mainCategoryData.id, name: mainCategoryData.name }, // Store simplified category info
         subcategory: subCategoryData ? { id: subCategoryData.id, name: subCategoryData.name } : undefined, // Store simplified subcategory info
         location: data.location,
-        images: imageUrls, 
-        seller: seller,
+        images: imageUrls, // Will be empty until image upload is implemented
+        seller: seller, // Use the fetched/constructed seller object
         postedDate: new Date().toISOString(),
-        status: 'pending',
-        isFeatured: false, 
+        status: 'pending', // Default status
+        isFeatured: false, // Default to not featured
       };
 
       await addDoc(collection(db, 'listings'), newListingData);
@@ -150,7 +154,7 @@ export function ListingForm() {
       setImagePreviews([]);
       setSelectedCategory(null);
       setSubcategories([]);
-    } catch (error)
+    } catch (error) {
       console.error("Error submitting listing:", error);
       toast({
         title: "Submission Failed",
@@ -165,10 +169,11 @@ export function ListingForm() {
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
+      // Revoke old object URLs to prevent memory leaks
       imagePreviews.forEach(previewUrl => URL.revokeObjectURL(previewUrl));
       const newPreviews = filesArray.map(file => URL.createObjectURL(file));
       setImagePreviews(newPreviews);
-      form.setValue('images', event.target.files); 
+      form.setValue('images', event.target.files); // Storing FileList for potential upload
     }
   };
 
@@ -254,7 +259,7 @@ export function ListingForm() {
                       <Select 
                         onValueChange={(value) => {
                           field.onChange(value);
-                          form.setValue('subcategoryId', ''); 
+                          form.setValue('subcategoryId', ''); // Reset subcategory when main category changes
                         }} 
                         defaultValue={field.value}
                         disabled={isSubmitting}
@@ -287,7 +292,7 @@ export function ListingForm() {
                           onValueChange={(value) => {
                             field.onChange(value === NO_SUBCATEGORY_VALUE ? '' : value);
                           }}
-                          value={field.value || NO_SUBCATEGORY_VALUE}
+                          value={field.value || NO_SUBCATEGORY_VALUE} // Ensure controlled component, map empty string to special value
                           disabled={isSubmitting}
                         >
                           <FormControl>
@@ -313,8 +318,8 @@ export function ListingForm() {
               
               <FormField
                 control={form.control}
-                name="images"
-                render={({ field }) => ( 
+                name="images" // This field in form state will hold FileList
+                render={({ field }) => ( // field will be { onChange, onBlur, value, name, ref }
                   <FormItem>
                     <FormLabel className="flex items-center"><Upload className="h-4 w-4 mr-1"/>Upload Images</FormLabel>
                     <FormControl>
@@ -322,9 +327,12 @@ export function ListingForm() {
                         type="file" 
                         multiple 
                         accept="image/*" 
-                        onChange={handleImageChange}
+                        onChange={handleImageChange} // Use custom handler to manage previews and set form value
                         disabled={isSubmitting}
                         className="file:text-sm file:font-medium"
+                        // 'field.value' would be FileList here. If we need to control the input's files,
+                        // 'field.onChange' for FileList is okay. Or manage FileList separately and don't pass 'field.value'.
+                        // For simplicity, not binding field.value directly here as previews are handled.
                       />
                     </FormControl>
                     <FormDescription>You can upload multiple images (upload to server not yet implemented).</FormDescription>
