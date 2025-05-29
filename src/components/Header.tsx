@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal, Menu, X, MessageSquare, ListChecks, Settings, ShieldCheck, Globe, LogOut as LogOutIcon } from 'lucide-react';
+import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal, Menu, X, MessageSquare, ListChecks, Settings, ShieldCheck, Globe, LogOut as LogOutIcon, HelpCircle, Car, Building2, Laptop, Briefcase, Sofa, Shirt, Dog, Baby, Puzzle, Factory } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons/Logo';
@@ -23,15 +23,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import React, { useState, useEffect } from 'react';
-import { mainSiteCategories, secondaryNavCategories, placeholderCategories } from '@/lib/placeholder-data'; // placeholderCategories still used for getCategoryName
-import type { Category, User as UserType } from '@/lib/types';
+import React, { useState, useEffect, useCallback } from 'react';
+// import { mainSiteCategories, secondaryNavCategories, placeholderCategories } from '@/lib/placeholder-data'; // No longer used for categories
+import type { Category, User as UserType, IconMapping } from '@/lib/types';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useLanguage } from '@/hooks/useLanguage';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query as firestoreQuery, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import * as Icons from 'lucide-react';
 
 // Simple translation dictionary
 const translations = {
@@ -62,6 +63,7 @@ const translations = {
     adminDashboard: 'Admin Dashboard',
     viewProfile: 'View Profile',
     loginSignUp: 'Login / Sign Up',
+    loading: 'Loading...',
   },
   ar: {
     login: 'تسجيل الدخول',
@@ -90,8 +92,12 @@ const translations = {
     adminDashboard: 'لوحة تحكم المشرف',
     viewProfile: 'عرض الملف الشخصي',
     loginSignUp: 'تسجيل الدخول / إنشاء حساب',
+    loading: 'جار التحميل...',
   }
 };
+
+const PREDEFINED_MAIN_SITE_CATEGORY_IDS = ['vehicles', 'properties']; // Example IDs
+const MAX_SECONDARY_NAV_CATEGORIES = 7; // Max number for secondary nav before "More"
 
 export function Header() {
   const pathname = usePathname();
@@ -99,18 +105,62 @@ export function Header() {
   const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
-  const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null);
+  // const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null); // Not strictly needed if currentUser has all info
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { language, setLanguage } = useLanguage();
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [mainSiteCategories, setMainSiteCategories] = useState<Category[]>([]);
+  const [secondaryNavCategories, setSecondaryNavCategories] = useState<Category[]>([]);
+  const [moreCategories, setMoreCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   const t = translations[language];
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      setIsLoadingCategories(true);
+      try {
+        const categoriesRef = collection(db, 'categories');
+        const q = firestoreQuery(categoriesRef, orderBy('name'));
+        const querySnapshot = await getDocs(q);
+        const fetchedCategories: Category[] = [];
+        querySnapshot.forEach((docSnapshot) => {
+          fetchedCategories.push({ id: docSnapshot.id, ...docSnapshot.data() } as Category);
+        });
+        setAllCategories(fetchedCategories);
+
+        // Determine main site categories (e.g., based on predefined IDs or a flag in Firestore)
+        const mainCategories = fetchedCategories.filter(cat => PREDEFINED_MAIN_SITE_CATEGORY_IDS.includes(cat.id));
+        setMainSiteCategories(mainCategories);
+
+        // Determine secondary nav categories (remaining categories, up to a limit)
+        const remainingCategories = fetchedCategories.filter(cat => !PREDEFINED_MAIN_SITE_CATEGORY_IDS.includes(cat.id));
+        if (remainingCategories.length > MAX_SECONDARY_NAV_CATEGORIES) {
+            setSecondaryNavCategories(remainingCategories.slice(0, MAX_SECONDARY_NAV_CATEGORIES -1)); // -1 for "More"
+            setMoreCategories(remainingCategories.slice(MAX_SECONDARY_NAV_CATEGORIES -1));
+        } else {
+            setSecondaryNavCategories(remainingCategories);
+            setMoreCategories([]);
+        }
+
+      } catch (error) {
+        console.error("Error fetching categories for header:", error);
+        toast({ title: "Error", description: "Could not load site categories.", variant: "destructive" });
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, [toast]);
+
 
   useEffect(() => {
     setIsLoadingAuth(true);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        setFirebaseAuthUser(user);
+        // setFirebaseAuthUser(user); // Not strictly needed for this component
         try {
           const userDocRef = doc(db, "users", user.uid);
           const userDocSnap = await getDoc(userDocRef);
@@ -118,40 +168,31 @@ export function Header() {
             setCurrentUser(userDocSnap.data() as UserType);
             setIsAuthenticated(true);
           } else {
-            // Fallback if Firestore doc doesn't exist (should be rare post-signup)
             setCurrentUser({
-              id: user.uid,
-              name: user.displayName || user.email || "User",
-              email: user.email || "",
-              avatarUrl: user.photoURL || "",
-              joinDate: user.metadata.creationTime || new Date().toISOString(),
-              isAdmin: false, // Default if no Firestore record
+              id: user.uid, name: user.displayName || user.email || "User",
+              email: user.email || "", avatarUrl: user.photoURL || "",
+              joinDate: user.metadata.creationTime || new Date().toISOString(), isAdmin: false,
             });
             setIsAuthenticated(true);
             console.warn("User document not found in Firestore for UID:", user.uid, "Using basic auth data.");
           }
         } catch (error) {
           console.error("Error fetching user document for header:", error);
-          // Still authenticated, but profile data might be incomplete
           setCurrentUser({
-            id: user.uid,
-            name: user.displayName || user.email || "User",
-            email: user.email || "",
-            avatarUrl: user.photoURL || "",
-            joinDate: user.metadata.creationTime || new Date().toISOString(),
-            isAdmin: false,
+            id: user.uid, name: user.displayName || user.email || "User",
+            email: user.email || "", avatarUrl: user.photoURL || "",
+            joinDate: user.metadata.creationTime || new Date().toISOString(), isAdmin: false,
           });
           setIsAuthenticated(true);
           toast({ title: "Profile Error", description: "Could not load full user details for header.", variant: "destructive" });
         }
       } else {
-        setFirebaseAuthUser(null);
+        // setFirebaseAuthUser(null);
         setCurrentUser(null);
         setIsAuthenticated(false);
       }
       setIsLoadingAuth(false);
     });
-
     return () => unsubscribe();
   }, [toast]);
 
@@ -159,8 +200,7 @@ export function Header() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
-      // onAuthStateChanged will handle setting currentUser to null and isAuthenticated to false
+      toast({ title: t.logout, description: 'You have been successfully logged out.' });
       router.push('/');
     } catch (error) {
       console.error('Logout error:', error);
@@ -172,30 +212,18 @@ export function Header() {
     setLanguage(language === 'en' ? 'ar' : 'en');
   };
 
-  const getCategoryName = (categoryId: string) => {
-    const category = placeholderCategories.find(c => c.id === categoryId);
-    if (!category) return categoryId; // fallback
+  // Helper to get category name based on current language (if translations are available)
+  const getCategoryName = useCallback((category: Category): string => {
+    // This is a simplified example. For a full i18n solution, you'd use a library like i18next
+    // and have translations for all category names.
+    // For now, it just returns the stored name.
     if (language === 'ar') {
-      const arNames: Record<string, string> = {
-        'vehicles': 'مركبات',
-        'properties': 'عقارات',
-        'electronics': 'إلكترونيات',
-        'jobs': 'وظائف',
-        'furniture': 'أثاث وديكور',
-        'fashion': 'أزياء وجمال',
-        'pets': 'حيوانات أليفة',
-        'kids': 'أطفال ورضع',
-        'more_categories': 'المزيد',
-        'mobiles': 'هواتف محمولة',
-        'cars-for-sale': 'سيارات للبيع',
-        'hobbies': 'هوايات',
-        'industrial': 'أعمال وصناعة',
-        'services': 'خدمات',
-      };
-      return arNames[categoryId] || category.name;
+        // Example of manual translation lookup if needed
+        // const arNames: Record<string, string> = { 'electronics': 'إلكترونيات', /* ... */ };
+        // return arNames[category.id] || category.name;
     }
     return category.name;
-  };
+  }, [language]);
 
 
   const NavLink = ({ href, children, className }: { href: string, children: React.ReactNode, className?: string }) => (
@@ -212,35 +240,47 @@ export function Header() {
   );
 
   const renderCategoryWithSubcategories = (item: Category, isMobile: boolean = false) => {
-    const categoryName = getCategoryName(item.id);
+    const categoryName = getCategoryName(item);
+    const categoryHref = item.href || `/s/${item.id}`;
+    const IconComponent = item.iconName ? (Icons as any)[item.iconName] || HelpCircle : HelpCircle;
+
     if (!item.subcategories || item.subcategories.length === 0) {
-      return <NavLink key={item.id} href={item.href || `/s/${item.id}`}>{categoryName}</NavLink>;
+      return (
+        <NavLink key={item.id} href={categoryHref} className={isMobile ? "w-full justify-start" : ""}>
+           {isMobile && <IconComponent className="h-4 w-4 me-2" />}
+           {categoryName}
+        </NavLink>
+      );
     }
 
     const TriggerComponent = (
       <Button
         variant="ghost"
         size="sm"
-        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname.startsWith(item.href || `/s/${item.id}`) ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-accent-foreground hover:bg-accent'} flex items-center`}
+        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname.startsWith(categoryHref) ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-accent-foreground hover:bg-accent'} flex items-center ${isMobile ? "w-full justify-between" : ""}`}
         onClick={isMobile ? (e) => e.preventDefault() : undefined}
       >
-        {categoryName} <ChevronDown className="h-3 w-3 ms-1" />
+        <div className="flex items-center">
+            {isMobile && <IconComponent className="h-4 w-4 me-2" />}
+            {categoryName}
+        </div>
+        <ChevronDown className="h-3 w-3 ms-1" />
       </Button>
     );
 
     return (
       <DropdownMenu key={item.id}>
         <DropdownMenuTrigger asChild>{TriggerComponent}</DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuItem asChild>
-            <Link href={item.href || `/s/${item.id}`} className="font-semibold">
+        <DropdownMenuContent align="start" className="w-56" sideOffset={isMobile ? 0 : 5}>
+          <DropdownMenuItem asChild onClick={isMobile ? () => setIsMobileMenuOpen(false) : undefined}>
+            <Link href={categoryHref} className="font-semibold">
               {language === 'ar' ? `الكل في ${categoryName}` : `All in ${categoryName}`}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {item.subcategories.map((subItem) => (
-            <DropdownMenuItem key={subItem.id} asChild>
-              <Link href={subItem.href || `/s/${item.id}/${subItem.id}`}>{getCategoryName(subItem.id)}</Link>
+            <DropdownMenuItem key={subItem.id} asChild onClick={isMobile ? () => setIsMobileMenuOpen(false) : undefined}>
+              <Link href={subItem.href || `/s/${item.id}/${subItem.id}`}>{getCategoryName(subItem)}</Link>
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
@@ -249,7 +289,12 @@ export function Header() {
   };
 
   const UserMenu = () => {
-    if (isLoadingAuth || !currentUser) { // Show skeleton or basic login if still loading or no user
+    if (isLoadingAuth) {
+        return (
+             <Button variant="ghost" size="sm" className="text-sm hidden md:inline-flex">{t.loading}</Button>
+        );
+    }
+    if (!isAuthenticated || !currentUser) {
         return (
             <Button variant="ghost" asChild size="sm" className="text-sm hidden md:inline-flex">
                 <Link href="/auth/login">{t.login}</Link>
@@ -277,38 +322,14 @@ export function Header() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-            <DropdownMenuItem asChild>
-                <Link href="/profile">
-                <UserCircle className="me-2 h-4 w-4" /> {t.profile}
-                </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-                <Link href="/profile?tab=listings">
-                <ListChecks className="me-2 h-4 w-4" /> {t.myListings}
-                </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-                <Link href="/messages">
-                <MessageSquare className="me-2 h-4 w-4" /> {t.messages}
-                </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-                <Link href="/profile?tab=settings">
-                <Settings className="me-2 h-4 w-4" /> {t.settings}
-                </Link>
-            </DropdownMenuItem>
-            {currentUser?.isAdmin && (
-                <DropdownMenuItem asChild>
-                <Link href="/admin/dashboard">
-                    <ShieldCheck className="me-2 h-4 w-4" /> {t.adminDashboard}
-                </Link>
-                </DropdownMenuItem>
-            )}
+            <DropdownMenuItem asChild><Link href="/profile"><UserCircle className="me-2 h-4 w-4" /> {t.profile}</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/profile?tab=listings"><ListChecks className="me-2 h-4 w-4" /> {t.myListings}</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/messages"><MessageSquare className="me-2 h-4 w-4" /> {t.messages}</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link href="/profile?tab=settings"><Settings className="me-2 h-4 w-4" /> {t.settings}</Link></DropdownMenuItem>
+            {currentUser?.isAdmin && (<DropdownMenuItem asChild><Link href="/admin/dashboard"><ShieldCheck className="me-2 h-4 w-4" /> {t.adminDashboard}</Link></DropdownMenuItem>)}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
-                <LogOutIcon className="me-2 h-4 w-4" /> {t.logout}
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}><LogOutIcon className="me-2 h-4 w-4" /> {t.logout}</DropdownMenuItem>
         </DropdownMenuContent>
         </DropdownMenu>
     );
@@ -318,100 +339,85 @@ export function Header() {
     <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="md:hidden">
-          <Menu className="h-6 w-6" />
-          <span className="sr-only">Open menu</span>
+          <Menu className="h-6 w-6" /> <span className="sr-only">Open menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side={language === 'ar' ? 'right' : 'left'} className="w-[280px] p-0">
-        <div className="flex flex-col h-full">
-          <div className="p-4 border-b">
-            <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
-              <Logo />
-            </Link>
-          </div>
-          <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
-            <h3 className="font-semibold text-sm px-2 text-muted-foreground">{t.topCategories}</h3>
-            {mainSiteCategories.map((item) => {
-              const Icon = item.icon as LucideIcon;
-              return (
-              <Button key={item.id} variant="ghost" asChild className="w-full justify-start text-foreground hover:text-primary" onClick={() => setIsMobileMenuOpen(false)}>
-                <Link href={item.href || `/s/${item.id}`}>
-                  {Icon && <Icon className="h-4 w-4 me-2" />}
-                  {getCategoryName(item.id)}
-                </Link>
-              </Button>
-              );
-            })}
-            <DropdownMenuSeparator/>
-            <h3 className="font-semibold text-sm px-2 text-muted-foreground pt-2">{t.allCategories}</h3>
-             {secondaryNavCategories.map((item) => (
-               renderCategoryWithSubcategories(item, true)
-            ))}
-
-            <DropdownMenuSeparator/>
-             <Button variant="ghost" size="sm" className="w-full justify-start text-sm" onClick={() => { toggleLanguage(); setIsMobileMenuOpen(false);}}>
-                <Globe className="me-2 h-4 w-4" /> {language === 'en' ? t.arabic : t.english}
-             </Button>
-
-          </nav>
-          <div className="p-4 border-t mt-auto">
-            {isAuthenticated && currentUser ? (
-              <>
-                <div className="flex items-center gap-2 mb-2">
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src={currentUser.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser.name} data-ai-hint="avatar person"/>
-                    <AvatarFallback>{currentUser.name.charAt(0).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm font-medium">{currentUser.name} {currentUser?.isAdmin && <span className="text-xs text-primary">({language === 'ar' ? "مشرف" : "Admin"})</span>}</p>
-                    <Link href="/profile" className="text-xs text-primary hover:underline" onClick={() => setIsMobileMenuOpen(false)}>{t.viewProfile}</Link>
-                  </div>
-                </div>
-                {currentUser?.isAdmin && (
-                    <Button variant="outline" asChild className="w-full mb-2" onClick={() => setIsMobileMenuOpen(false)}>
-                        <Link href="/admin/dashboard">{t.adminDashboard}</Link>
+      <SheetContent side={language === 'ar' ? 'right' : 'left'} className="w-[280px] p-0 flex flex-col">
+        <div className="p-4 border-b">
+          <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}><Logo /></Link>
+        </div>
+        <nav className="flex-grow p-4 space-y-1 overflow-y-auto">
+          <h3 className="font-semibold text-sm px-2 text-muted-foreground">{t.topCategories}</h3>
+          {isLoadingCategories ? Array.from({length:3}).map((_,i) => <Skeleton key={i} className="h-8 w-full my-1"/>) : 
+            mainSiteCategories.map((item) => renderCategoryWithSubcategories(item, true))
+          }
+          <DropdownMenuSeparator className="my-2"/>
+          <h3 className="font-semibold text-sm px-2 text-muted-foreground pt-1">{t.allCategories}</h3>
+          {isLoadingCategories ? Array.from({length:5}).map((_,i) => <Skeleton key={i} className="h-8 w-full my-1"/>) : 
+            <>
+              {secondaryNavCategories.map((item) => renderCategoryWithSubcategories(item, true))}
+              {moreCategories.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-between text-sm items-center">
+                      <div className="flex items-center"> <MoreHorizontal className="h-4 w-4 me-2"/> {t.more} </div>
+                      <ChevronDown className="h-3 w-3 ms-1" />
                     </Button>
-                )}
-                <Button variant="ghost" onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="w-full mt-2">
-                  <LogOutIcon className="me-2 h-4 w-4" /> {t.logout}
-                </Button>
-              </>
-            ) : (
-              <Button variant="outline" asChild className="w-full mb-2" onClick={() => setIsMobileMenuOpen(false)}>
-                <Link href="/auth/login">{t.loginSignUp}</Link>
-              </Button>
-            )}
-            <Button asChild size="sm" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mt-2" onClick={() => setIsMobileMenuOpen(false)}>
-              <Link href="/listings/new">{t.postYourAd}</Link>
-            </Button>
-          </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent sideOffset={0} align="start" className="w-[245px]">
+                    {moreCategories.map(item => (
+                        renderCategoryWithSubcategories(item, true)
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </>
+          }
+          <DropdownMenuSeparator className="my-2"/>
+          <Button variant="ghost" size="sm" className="w-full justify-start text-sm" onClick={() => { toggleLanguage(); setIsMobileMenuOpen(false);}}>
+              <Globe className="me-2 h-4 w-4" /> {language === 'en' ? t.arabic : t.english}
+          </Button>
+        </nav>
+        <div className="p-4 border-t mt-auto">
+          {isLoadingAuth ? <Skeleton className="h-10 w-full mb-2"/> :
+           isAuthenticated && currentUser ? (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <Avatar className="h-9 w-9"><AvatarImage src={currentUser.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser.name} data-ai-hint="avatar person"/><AvatarFallback>{currentUser.name.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                <div>
+                  <p className="text-sm font-medium">{currentUser.name} {currentUser?.isAdmin && <span className="text-xs text-primary">({language === 'ar' ? "مشرف" : "Admin"})</span>}</p>
+                  <Link href="/profile" className="text-xs text-primary hover:underline" onClick={() => setIsMobileMenuOpen(false)}>{t.viewProfile}</Link>
+                </div>
+              </div>
+              {currentUser?.isAdmin && (<Button variant="outline" asChild className="w-full mb-2" onClick={() => setIsMobileMenuOpen(false)}><Link href="/admin/dashboard">{t.adminDashboard}</Link></Button>)}
+              <Button variant="ghost" onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="w-full mt-1"><LogOutIcon className="me-2 h-4 w-4" /> {t.logout}</Button>
+            </>
+          ) : (
+            <Button variant="outline" asChild className="w-full mb-2" onClick={() => setIsMobileMenuOpen(false)}><Link href="/auth/login">{t.loginSignUp}</Link></Button>
+          )}
+          <Button asChild size="sm" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mt-2" onClick={() => setIsMobileMenuOpen(false)}><Link href="/listings/new">{t.postYourAd}</Link></Button>
         </div>
       </SheetContent>
     </Sheet>
   );
-
 
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50">
       {/* Top Bar */}
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="md:hidden">
-            <MobileNav />
-          </div>
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <Logo />
-          </Link>
+          <MobileNav />
+          <Link href="/" className="flex items-center gap-2 shrink-0"><Logo /></Link>
         </div>
 
-        <div className="hidden md:flex items-center gap-2 ms-4">
-          {mainSiteCategories.map((item) => {
-            const Icon = item.icon as LucideIcon;
+        <div className="hidden md:flex items-center gap-1 ms-4">
+          {isLoadingCategories ? Array.from({length:2}).map((_,i)=><Skeleton key={i} className="h-8 w-24"/>) :
+            mainSiteCategories.map((item) => {
+            const Icon = item.iconName ? (Icons as any)[item.iconName] || HelpCircle : HelpCircle;
             return (
             <Button key={item.id} variant="ghost" asChild className="text-sm font-medium text-foreground hover:text-primary">
               <Link href={item.href || `/s/${item.id}`}>
-                {Icon && <Icon className="h-4 w-4 me-1" />}
-                {getCategoryName(item.id)}
+                <Icon className="h-4 w-4 me-1" /> {getCategoryName(item)}
               </Link>
             </Button>
             );
@@ -421,52 +427,45 @@ export function Header() {
         <div className="flex-grow mx-4 hidden md:flex items-center gap-2">
            <Select defaultValue="egypt">
             <SelectTrigger className="w-[120px] h-10 text-sm focus:ring-0">
-              <MapPin className="h-4 w-4 me-1 text-muted-foreground" />
-              <SelectValue />
+              <MapPin className="h-4 w-4 me-1 text-muted-foreground" /><SelectValue />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="egypt">{t.egypt}</SelectItem>
-              <SelectItem value="uae">{t.uae}</SelectItem>
-            </SelectContent>
+            <SelectContent><SelectItem value="egypt">{t.egypt}</SelectItem><SelectItem value="uae">{t.uae}</SelectItem></SelectContent>
           </Select>
           <div className="relative flex-grow">
-            <Input
-              type="search"
-              placeholder={t.findPlaceholder}
-              className="h-10 ps-4 pe-10 w-full"
-            />
-            <Button type="submit" size="icon" className="absolute end-1 top-1/2 -translate-y-1/2 h-8 w-8 bg-primary hover:bg-primary/90">
-              <Search className="h-4 w-4 text-primary-foreground" />
-            </Button>
+            <Input type="search" placeholder={t.findPlaceholder} className="h-10 ps-4 pe-10 w-full"/>
+            <Button type="submit" size="icon" className="absolute end-1 top-1/2 -translate-y-1/2 h-8 w-8 bg-primary hover:bg-primary/90"><Search className="h-4 w-4 text-primary-foreground" /></Button>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="ghost" size="sm" className="text-sm hidden md:inline-flex" onClick={toggleLanguage}>
-            <Globe className="me-1 h-4 w-4" />
-            {language === 'en' ? t.arabic : t.english}
-          </Button>
-          {isLoadingAuth ? (
-            <Button variant="ghost" size="sm" className="text-sm hidden md:inline-flex">Loading...</Button>
-          ) : isAuthenticated && currentUser ? (
-             <UserMenu />
-          ) : (
-            <Button variant="ghost" asChild size="sm" className="text-sm hidden md:inline-flex">
-              <Link href="/auth/login">{t.login}</Link>
-            </Button>
-          )}
-          <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground hidden md:inline-flex">
-            <Link href="/listings/new">{t.postYourAd}</Link>
-          </Button>
+          <Button variant="ghost" size="sm" className="text-sm hidden md:inline-flex" onClick={toggleLanguage}><Globe className="me-1 h-4 w-4" />{language === 'en' ? t.arabic : t.english}</Button>
+          <UserMenu />
+          <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground hidden md:inline-flex"><Link href="/listings/new">{t.postYourAd}</Link></Button>
         </div>
       </div>
 
       {/* Main Navigation Bar */}
       <div className="bg-secondary border-t border-b border-border hidden md:block">
         <div className="container mx-auto px-4 h-12 flex items-center justify-start md:justify-center space-x-1 md:space-x-3 overflow-x-auto">
-          {secondaryNavCategories.map((item) => (
-            renderCategoryWithSubcategories(item, false)
-          ))}
+          {isLoadingCategories ? Array.from({length:MAX_SECONDARY_NAV_CATEGORIES}).map((_,i)=><Skeleton key={i} className="h-8 w-28"/>) :
+          <>
+            {secondaryNavCategories.map((item) => renderCategoryWithSubcategories(item, false))}
+            {moreCategories.length > 0 && (
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-xs sm:text-sm font-medium whitespace-nowrap text-secondary-foreground hover:text-accent-foreground hover:bg-accent flex items-center">
+                            {t.more} <ChevronDown className="h-3 w-3 ms-1" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                    {moreCategories.map((item) => (
+                        renderCategoryWithSubcategories(item, false) // Render as full dropdown items
+                    ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
+          </>
+          }
         </div>
       </div>
     </header>

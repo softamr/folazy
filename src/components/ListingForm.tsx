@@ -17,14 +17,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { placeholderCategories } from '@/lib/placeholder-data';
+// import { placeholderCategories } from '@/lib/placeholder-data'; // No longer used for categories
 import type { Category, ListingStatus, User, Listing as ListingType, ListingCategoryInfo } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImageAnalysisTool } from './ImageAnalysisTool';
 import { Upload, DollarSign, MapPinIcon, TagIcon, ListTree, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { addDoc, collection, doc, getDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, query as firestoreQuery, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 const listingFormSchema = z.object({
@@ -62,25 +62,50 @@ export function ListingForm() {
   });
 
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [subcategories, setSubcategories] = useState<Category[]>([]);
+  
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [selectedMainCategory, setSelectedMainCategory] = useState<Category | null>(null);
+  const [availableSubcategories, setAvailableSubcategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   const watchedCategoryId = form.watch('categoryId');
 
   useEffect(() => {
-    if (watchedCategoryId) {
-      const category = placeholderCategories.find(cat => cat.id === watchedCategoryId);
-      setSelectedCategory(category || null);
-      setSubcategories(category?.subcategories || []);
+    const fetchCategories = async () => {
+      setIsLoadingCategories(true);
+      try {
+        const categoriesRef = collection(db, 'categories');
+        const q = firestoreQuery(categoriesRef, orderBy('name'));
+        const querySnapshot = await getDocs(q);
+        const fetchedCategories: Category[] = [];
+        querySnapshot.forEach((doc) => {
+          fetchedCategories.push({ id: doc.id, ...doc.data() } as Category);
+        });
+        setAllCategories(fetchedCategories);
+      } catch (error) {
+        console.error("Error fetching categories for form:", error);
+        toast({ title: "Error", description: "Could not load categories for the form.", variant: "destructive" });
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, [toast]);
+
+  useEffect(() => {
+    if (watchedCategoryId && allCategories.length > 0) {
+      const category = allCategories.find(cat => cat.id === watchedCategoryId);
+      setSelectedMainCategory(category || null);
+      setAvailableSubcategories(category?.subcategories || []);
       const currentSubcategoryId = form.getValues('subcategoryId');
       if (currentSubcategoryId && !category?.subcategories?.find(sc => sc.id === currentSubcategoryId)) {
         form.setValue('subcategoryId', '');
       }
     } else {
-      setSelectedCategory(null);
-      setSubcategories([]);
+      setSelectedMainCategory(null);
+      setAvailableSubcategories([]);
     }
-  }, [watchedCategoryId, form]);
+  }, [watchedCategoryId, allCategories, form]);
 
   async function onSubmit(data: ListingFormValues) {
     setIsSubmitting(true);
@@ -104,29 +129,29 @@ export function ListingForm() {
       if (userDocSnap.exists()) {
         seller = userDocSnap.data() as User;
       } else {
-        // This is a fallback, ideally the user document should always exist for a logged-in user
-        // If it doesn't, it might indicate an issue during signup or data inconsistency
         seller = {
           id: currentUser.uid,
           name: currentUser.displayName || "Anonymous User",
-          email: currentUser.email || "", // Ensure email is part of the User type and available
+          email: currentUser.email || "", 
           avatarUrl: currentUser.photoURL || "",
-          joinDate: new Date().toISOString(), // Or from currentUser.metadata.creationTime
-          isAdmin: false, // Default to false if not found
+          joinDate: new Date().toISOString(), 
+          isAdmin: false, 
         };
       }
 
-      const mainCategoryData = placeholderCategories.find(c => c.id === data.categoryId);
+      const mainCategoryData = allCategories.find(c => c.id === data.categoryId);
       if (!mainCategoryData) {
         throw new Error("Selected category not found.");
       }
 
-      let subCategoryData: Category | undefined = undefined;
+      let subCategoryInfo: ListingCategoryInfo | undefined = undefined;
       if (data.subcategoryId && data.subcategoryId !== NO_SUBCATEGORY_VALUE) {
-        subCategoryData = mainCategoryData.subcategories?.find(sc => sc.id === data.subcategoryId);
+        const subCategoryData = mainCategoryData.subcategories?.find(sc => sc.id === data.subcategoryId);
+        if (subCategoryData) {
+            subCategoryInfo = { id: subCategoryData.id, name: subCategoryData.name };
+        }
       }
       
-      // Placeholder for image URLs - actual upload to Firebase Storage needs to be implemented
       const imageUrls: string[] = []; 
       // TODO: Implement image upload to Firebase Storage and get URLs
 
@@ -134,14 +159,14 @@ export function ListingForm() {
         title: data.title,
         description: data.description,
         price: data.price,
-        category: { id: mainCategoryData.id, name: mainCategoryData.name }, // Store simplified category info
-        subcategory: subCategoryData ? { id: subCategoryData.id, name: subCategoryData.name } : undefined, // Store simplified subcategory info
+        category: { id: mainCategoryData.id, name: mainCategoryData.name },
+        subcategory: subCategoryInfo,
         location: data.location,
-        images: imageUrls, // Will be empty until image upload is implemented
-        seller: seller, // Use the fetched/constructed seller object
+        images: imageUrls, 
+        seller: seller, 
         postedDate: new Date().toISOString(),
-        status: 'pending', // Default status
-        isFeatured: false, // Default to not featured
+        status: 'pending', 
+        isFeatured: false, 
       };
 
       await addDoc(collection(db, 'listings'), newListingData);
@@ -152,8 +177,8 @@ export function ListingForm() {
       });
       form.reset();
       setImagePreviews([]);
-      setSelectedCategory(null);
-      setSubcategories([]);
+      setSelectedMainCategory(null);
+      setAvailableSubcategories([]);
     } catch (error) {
       console.error("Error submitting listing:", error);
       toast({
@@ -169,11 +194,10 @@ export function ListingForm() {
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
-      // Revoke old object URLs to prevent memory leaks
       imagePreviews.forEach(previewUrl => URL.revokeObjectURL(previewUrl));
       const newPreviews = filesArray.map(file => URL.createObjectURL(file));
       setImagePreviews(newPreviews);
-      form.setValue('images', event.target.files); // Storing FileList for potential upload
+      form.setValue('images', event.target.files); 
     }
   };
 
@@ -228,7 +252,7 @@ export function ListingForm() {
                     <FormItem>
                       <FormLabel className="flex items-center"><DollarSign className="h-4 w-4 mr-1"/>Price</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="e.g., 50.00" {...field} disabled={isSubmitting} />
+                        <Input type="number" placeholder="e.g., 50.00" {...field} value={field.value ?? ''} disabled={isSubmitting} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -259,18 +283,18 @@ export function ListingForm() {
                       <Select 
                         onValueChange={(value) => {
                           field.onChange(value);
-                          form.setValue('subcategoryId', ''); // Reset subcategory when main category changes
+                          form.setValue('subcategoryId', ''); 
                         }} 
                         defaultValue={field.value}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || isLoadingCategories}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a main category" />
+                            <SelectValue placeholder={isLoadingCategories ? "Loading categories..." : "Select a main category"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {placeholderCategories.map((cat) => (
+                          {!isLoadingCategories && allCategories.map((cat) => (
                             <SelectItem key={cat.id} value={cat.id}>
                               {cat.name}
                             </SelectItem>
@@ -281,7 +305,7 @@ export function ListingForm() {
                     </FormItem>
                   )}
                 />
-                {selectedCategory && subcategories.length > 0 && (
+                {selectedMainCategory && availableSubcategories.length > 0 && (
                   <FormField
                     control={form.control}
                     name="subcategoryId"
@@ -292,17 +316,17 @@ export function ListingForm() {
                           onValueChange={(value) => {
                             field.onChange(value === NO_SUBCATEGORY_VALUE ? '' : value);
                           }}
-                          value={field.value || NO_SUBCATEGORY_VALUE} // Ensure controlled component, map empty string to special value
-                          disabled={isSubmitting}
+                          value={field.value || NO_SUBCATEGORY_VALUE} 
+                          disabled={isSubmitting || isLoadingCategories}
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder={`Select subcategory for ${selectedCategory.name}`} />
+                              <SelectValue placeholder={`Select subcategory for ${selectedMainCategory.name}`} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             <SelectItem value={NO_SUBCATEGORY_VALUE}>No subcategory / General</SelectItem>
-                            {subcategories.map((subcat) => (
+                            {availableSubcategories.map((subcat) => (
                               <SelectItem key={subcat.id} value={subcat.id}>
                                 {subcat.name}
                               </SelectItem>
@@ -318,8 +342,8 @@ export function ListingForm() {
               
               <FormField
                 control={form.control}
-                name="images" // This field in form state will hold FileList
-                render={({ field }) => ( // field will be { onChange, onBlur, value, name, ref }
+                name="images" 
+                render={({ field }) => ( 
                   <FormItem>
                     <FormLabel className="flex items-center"><Upload className="h-4 w-4 mr-1"/>Upload Images</FormLabel>
                     <FormControl>
@@ -327,12 +351,9 @@ export function ListingForm() {
                         type="file" 
                         multiple 
                         accept="image/*" 
-                        onChange={handleImageChange} // Use custom handler to manage previews and set form value
+                        onChange={handleImageChange} 
                         disabled={isSubmitting}
                         className="file:text-sm file:font-medium"
-                        // 'field.value' would be FileList here. If we need to control the input's files,
-                        // 'field.onChange' for FileList is okay. Or manage FileList separately and don't pass 'field.value'.
-                        // For simplicity, not binding field.value directly here as previews are handled.
                       />
                     </FormControl>
                     <FormDescription>You can upload multiple images (upload to server not yet implemented).</FormDescription>
@@ -348,7 +369,7 @@ export function ListingForm() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full sm:w-auto" size="lg" disabled={isSubmitting}>
+              <Button type="submit" className="w-full sm:w-auto" size="lg" disabled={isSubmitting || isLoadingCategories}>
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

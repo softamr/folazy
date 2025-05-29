@@ -1,9 +1,10 @@
+
 // src/components/admin/AdminSidebar.tsx
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, FileText, Settings, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, ShieldCheck, ListOrdered } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons/Logo';
@@ -12,6 +13,7 @@ const adminNavItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/users', label: 'User Management', icon: Users },
   { href: '/admin/listings', label: 'Listing Management', icon: FileText },
+  { href: '/admin/categories', label: 'Category Management', icon: ListOrdered },
   // { href: '/admin/settings', label: 'Admin Settings', icon: Settings },
 ];
 

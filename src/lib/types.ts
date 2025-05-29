@@ -1,6 +1,6 @@
 
 import type React from 'react';
-import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon as LucideIconType } from 'lucide-react'; // Keep for other uses if any, or for mapping
 
 export type User = {
   id: string; // This will be the uid from Firebase Auth
@@ -11,19 +11,21 @@ export type User = {
   isAdmin?: boolean;
 };
 
+// Represents a category or subcategory structure as stored in Firestore
+// and used throughout the app.
 export interface Category {
-  id: string;
+  id: string; // Firestore document ID for main categories, or a generated ID/slug for subcategories
   name: string;
-  icon?: LucideIcon; // Optional icon for main categories
-  subcategories?: Category[]; // For subcategories
-  href?: string; // For linking directly, e.g. in PopularCategories
+  iconName?: string; // Name of the Lucide icon (e.g., "Car", "Laptop")
+  subcategories?: Category[]; // Array of subcategory objects. Subcategories here won't have their own 'subcategories' array.
+  href?: string; // Optional: if we want to override default /s/:id route
 }
 
 // Simplified category information to be stored within a Listing document
 export type ListingCategoryInfo = {
   id: string;
   name: string;
-  // Does not include icon, href, or subcategories array
+  // Does not include iconName or subcategories array for listings
 };
 
 export type ListingStatus = 'pending' | 'approved' | 'rejected' | 'sold'; // Added 'sold'
@@ -54,13 +56,16 @@ export type PopularCategoryLink = {
   isSubcategory?: boolean; // To differentiate styling or behavior if needed
 };
 
+// This type will be less used if PopularCategories fetches directly from Firestore
 export type PopularCategory = {
   id: string;
   name: string;
-  icon: LucideIcon;
-  href: string; // Link for the main popular category (e.g., "All in Vehicles")
-  subLinks: PopularCategoryLink[]; // Can now represent direct subcategories or featured links
+  icon: LucideIconType; // This was the old type, will be replaced by iconName logic
+  iconName?: string; // For dynamic fetching
+  href: string;
+  subLinks: PopularCategoryLink[];
 };
+
 
 // For chat system placeholder
 export type Message = {
@@ -80,4 +85,9 @@ export type Conversation = {
   participants: [User, User]; // [UserA, UserB]
   lastMessage: Message;
   unreadCount: number;
+};
+
+// For dynamic icon mapping
+export type IconMapping = {
+    [key: string]: LucideIconType;
 };
