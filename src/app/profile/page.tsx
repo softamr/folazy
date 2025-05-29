@@ -1,12 +1,13 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { placeholderListings, placeholderUsers, placeholderConversations } from '@/lib/placeholder-data';
-import type { Listing, Conversation } from '@/lib/types';
+import type { Listing, Conversation, User as UserType } from '@/lib/types';
 import { ListingCard } from '@/components/ListingCard';
-import { User, Settings, ListChecks, LogOut, MessageSquare, Edit3, ShieldCheck } from 'lucide-react';
+import { User, Settings, ListChecks, LogOut, MessageSquare, Edit3, ShieldCheck, UserCircle as UserCircleIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,33 +17,52 @@ import Link from 'next/link';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState(placeholderUsers[0]); // Simulate logged-in user
+  // Initialize currentUser to null, it will be set after attempting to find the user
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null); 
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    setIsLoading(true);
     // Simulate fetching user data or checking auth status
-    // In a real app, you'd fetch the current user or redirect if not authenticated.
-    const loggedInUser = placeholderUsers.find(u => u.id === 'user1'); // Example
+    const loggedInUser = placeholderUsers.find(u => u.id === 'user1'); // Example user ID
+    
     if (loggedInUser) {
       setCurrentUser(loggedInUser);
     } else {
-      // router.push('/auth/login'); // Uncomment in a real app
+      setCurrentUser(null); // Explicitly set to null if no user is found
+      // In a real app with actual authentication, you might redirect here:
+      // router.push('/auth/login'); 
     }
     setIsLoading(false);
   }, [router]);
 
-  const userListings = placeholderListings.filter(l => l.seller.id === currentUser.id);
-  const userConversations = placeholderConversations.filter(
-    convo => convo.participants.some(p => p.id === currentUser.id)
-  );
+  const userListings = currentUser ? placeholderListings.filter(l => l.seller.id === currentUser.id) : [];
+  const userConversations = currentUser ? placeholderConversations.filter(
+    convo => convo.participants.some(p => p.id === currentUser!.id)
+  ) : [];
 
   const handleLogout = () => {
     alert('Logged out successfully!');
+    // In a real app: clear auth tokens, update auth state
+    setCurrentUser(null); // Simulate logout
     router.push('/');
   };
 
   if (isLoading) {
     return <div className="text-center py-20">Loading profile...</div>;
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-15rem)] py-12">
+        <UserCircleIcon className="h-16 w-16 mb-4 text-muted-foreground" />
+        <p className="text-xl font-medium mb-2">Access Denied</p>
+        <p className="text-muted-foreground mb-6">Please log in to view your profile.</p>
+        <Button asChild>
+          <Link href="/auth/login">Login</Link>
+        </Button>
+      </div>
+    );
   }
 
   return (

@@ -2,9 +2,7 @@ import type { Listing, User, Category, PopularCategory, Conversation, Message, L
 import { Car, Building2, Smartphone, Briefcase, Laptop, Sofa, GripVertical, Baby, Puzzle, Shirt, Dog, Factory, UsersIcon, Sparkles, HomeIcon, Tv, Lamp, ShoppingBag, Settings2, MoreHorizontal, MessageSquare, ListChecks, UserCircleIcon, ShieldCheck } from 'lucide-react';
 
 export const placeholderUsers: User[] = [
-  { id: 'user1', name: 'Alice Wonderland', avatarUrl: 'https://placehold.co/100x100.png', joinDate: '2023-01-15', isAdmin: true }, // Alice is now an admin
-  { id: 'user2', name: 'Bob The Builder', avatarUrl: 'https://placehold.co/100x100.png', joinDate: '2022-11-20' },
-  { id: 'user3', name: 'Charlie Brown', avatarUrl: 'https://placehold.co/100x100.png', joinDate: '2023-05-10' },
+  // Users removed to start with real data
 ];
 
 export const placeholderCategories: Category[] = [
@@ -89,7 +87,7 @@ export const secondaryNavCategories: Category[] = [
   placeholderCategories.find(cat => cat.id === 'fashion')!,
   placeholderCategories.find(cat => cat.id === 'pets')!,
   placeholderCategories.find(cat => cat.id === 'kids')!,
-  { id: 'more_categories', name: 'More', icon: MoreHorizontal, href: '/s/all-categories' } // This could link to a page showing all categories
+  { id: 'more_categories', name: 'More', icon: MoreHorizontal, href: '/s/all-categories' } 
 ];
 
 
@@ -109,10 +107,10 @@ export const popularCategoryData: PopularCategory[] = [
     subLinks: placeholderCategories.find(c => c.id === 'properties')?.subcategories?.slice(0, 2).map(sc => ({ name: sc.name, href: sc.href || '#', isSubcategory: true })) || [],
   },
   {
-    id: 'pop_mobiles_tablets', // This should map to electronics/mobiles or electronics/tablets
+    id: 'pop_mobiles_tablets', 
     name: 'Mobiles & Tablets',
     icon: Smartphone,
-    href: '/s/electronics/mobiles', // Main link for the card
+    href: '/s/electronics/mobiles', 
     subLinks: [
       { name: 'Mobile Phones', href: '/s/electronics/mobiles', isSubcategory: true },
       { name: 'Tablets', href: '/s/electronics/tablets', isSubcategory: true },
@@ -202,165 +200,13 @@ export const popularCategoryData: PopularCategory[] = [
 ];
 
 export const placeholderListings: Listing[] = [
-  {
-    id: 'listing1',
-    title: 'Vintage Leather Sofa',
-    description: 'A beautiful vintage leather sofa, in excellent condition. Perfect for a cozy living room. Minor wear consistent with age.',
-    price: 450,
-    category: placeholderCategories.find(c => c.id === 'furniture')!,
-    subcategory: placeholderCategories.find(c => c.id === 'furniture')?.subcategories?.find(sc => sc.id === 'living-room'),
-    location: 'New York, NY',
-    images: ['https://placehold.co/600x400.png'],
-    seller: placeholderUsers[0],
-    postedDate: '2024-07-10',
-    isFeatured: true,
-    status: 'approved',
-  },
-  {
-    id: 'listing2',
-    title: 'Smartphone XYZ - Like New',
-    description: 'Latest model Smartphone XYZ, used for only 2 months. Comes with original box and accessories. No scratches or dents.',
-    price: 700,
-    category: placeholderCategories.find(c => c.id === 'electronics')!,
-    subcategory: placeholderCategories.find(c => c.id === 'electronics')?.subcategories?.find(sc => sc.id === 'mobiles'),
-    location: 'San Francisco, CA',
-    images: ['https://placehold.co/600x400.png'],
-    seller: placeholderUsers[1],
-    postedDate: '2024-07-15',
-    status: 'approved',
-  },
-  {
-    id: 'listing3',
-    title: 'Mountain Bike - XL Frame',
-    description: 'Durable mountain bike with an XL frame, suitable for taller riders. Recently serviced and ready for trails.',
-    price: 300,
-    category: placeholderCategories.find(c => c.id === 'hobbies')!, // Assuming hobbies includes bikes
-    location: 'Denver, CO',
-    images: ['https://placehold.co/600x400.png'],
-    seller: placeholderUsers[0],
-    postedDate: '2024-07-18',
-    status: 'pending',
-  },
-  {
-    id: 'listing4',
-    title: 'Designer Handbag',
-    description: 'Authentic designer handbag, rarely used. Classic style, comes with dust bag. A statement piece for any wardrobe.',
-    price: 250,
-    category: placeholderCategories.find(c => c.id === 'fashion')!,
-    location: 'Los Angeles, CA',
-    images: ['https://placehold.co/600x400.png'],
-    seller: placeholderUsers[2],
-    postedDate: '2024-07-05',
-    isFeatured: true,
-    status: 'approved',
-  },
-  {
-    id: 'listing5',
-    title: 'Antique Wooden Bookshelf',
-    description: 'Solid oak bookshelf with intricate carvings. A truly unique piece for book lovers. Adds character to any room.',
-    price: 180,
-    category: placeholderCategories.find(c => c.id === 'furniture')!,
-    subcategory: placeholderCategories.find(c => c.id === 'furniture')?.subcategories?.find(sc => sc.id === 'decor'),
-    location: 'Boston, MA',
-    images: ['https://placehold.co/600x400.png'],
-    seller: placeholderUsers[1],
-    postedDate: '2024-07-12',
-    status: 'rejected',
-  },
-  {
-    id: 'listing6',
-    title: 'Gaming Laptop - High Performance',
-    description: 'Powerful gaming laptop with top-tier specs. Capable of running all modern games at high settings. Includes cooling pad.',
-    price: 1200,
-    category: placeholderCategories.find(c => c.id === 'electronics')!,
-    subcategory: placeholderCategories.find(c => c.id === 'electronics')?.subcategories?.find(sc => sc.id === 'laptops'),
-    location: 'Austin, TX',
-    images: ['https://placehold.co/600x400.png'],
-    seller: placeholderUsers[0],
-    postedDate: '2024-07-20',
-    status: 'approved',
-  },
-  {
-    id: 'listing7',
-    title: 'Apartment for Rent - Downtown',
-    description: 'Spacious 2-bedroom apartment in the heart of downtown. Modern amenities, close to public transport.',
-    price: 2200,
-    category: placeholderCategories.find(c => c.id === 'properties')!,
-    subcategory: placeholderCategories.find(c => c.id === 'properties')?.subcategories?.find(sc => sc.id === 'apartments-for-rent'),
-    location: 'Chicago, IL',
-    images: ['https://placehold.co/600x400.png', 'https://placehold.co/600x400.png'],
-    seller: placeholderUsers[1],
-    postedDate: '2024-07-22',
-    isFeatured: true,
-    status: 'pending',
-  },
-  {
-    id: 'listing8',
-    title: 'Ford Focus 2018 - Low Mileage',
-    description: 'Well-maintained Ford Focus, 2018 model. Low mileage, clean title. Great fuel efficiency.',
-    price: 12500,
-    category: placeholderCategories.find(c => c.id === 'vehicles')!,
-    subcategory: placeholderCategories.find(c => c.id === 'vehicles')?.subcategories?.find(sc => sc.id === 'cars-for-sale'),
-    location: 'Miami, FL',
-    images: ['https://placehold.co/600x400.png', 'https://placehold.co/600x400.png', 'https://placehold.co/600x400.png'],
-    seller: placeholderUsers[2],
-    postedDate: '2024-07-19',
-    status: 'approved',
-  },
+  // Listings removed to start with real data
 ];
 
-// Placeholder Chat Data
-const mockMessage1: Message = {
-  id: 'msg1',
-  conversationId: 'convo1',
-  senderId: 'user2',
-  receiverId: 'user1',
-  text: 'Hi Alice, is the Vintage Leather Sofa still available?',
-  timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-  isRead: false,
-};
-
-const mockMessage2: Message = {
-  id: 'msg2',
-  conversationId: 'convo1',
-  senderId: 'user1',
-  receiverId: 'user2',
-  text: 'Hello Bob! Yes, it is. Are you interested?',
-  timestamp: new Date(Date.now() - 1000 * 60 * 55).toISOString(), // 55 mins ago
-  isRead: true,
-};
-
-const mockMessage3: Message = {
-  id: 'msg3',
-  conversationId: 'convo2',
-  senderId: 'user3',
-  receiverId: 'user1',
-  text: 'About the Gaming Laptop, can you do $1100?',
-  timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-  isRead: true,
-};
-
-
 export const placeholderConversations: Conversation[] = [
-  {
-    id: 'convo1',
-    listingId: 'listing1',
-    listingTitle: 'Vintage Leather Sofa',
-    participants: [placeholderUsers.find(u => u.id === 'user1')!, placeholderUsers.find(u => u.id === 'user2')!],
-    lastMessage: mockMessage2,
-    unreadCount: 0,
-  },
-  {
-    id: 'convo2',
-    listingId: 'listing6',
-    listingTitle: 'Gaming Laptop - High Performance',
-    participants: [placeholderUsers.find(u => u.id === 'user1')!, placeholderUsers.find(u => u.id === 'user3')!],
-    lastMessage: mockMessage3,
-    unreadCount: 1,
-  },
+  // Conversations removed to start with real data
 ];
 
 export const placeholderMessagesForConversation: Record<string, Message[]> = {
-  'convo1': [mockMessage1, mockMessage2],
-  'convo2': [mockMessage3],
+  // Messages removed to start with real data
 };

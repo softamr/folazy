@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useState, useEffect } from 'react';
 import { mainSiteCategories, secondaryNavCategories, placeholderUsers, placeholderCategories } from '@/lib/placeholder-data';
-import type { Category, User as UserType } from '@/lib/types'; // Renamed User to UserType to avoid conflict
+import type { Category, User as UserType } from '@/lib/types';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { useLanguage, type Language as AppLanguage } from '@/hooks/useLanguage';
 
@@ -100,14 +100,20 @@ export function Header() {
   const t = translations[language];
 
   useEffect(() => {
-    const authStatus = Math.random() > 0.5; 
-    setIsAuthenticated(authStatus);
-    if (authStatus) {
-      setCurrentUser(placeholderUsers[0]);
+    // Simulate fetching the current user.
+    // In a real app, this would be an API call or auth context.
+    const potentialUser = placeholderUsers.find(u => u.id === 'user1'); // Attempt to find a specific user (e.g., user1)
+
+    if (potentialUser) {
+      setIsAuthenticated(true);
+      setCurrentUser(potentialUser);
     } else {
+      // If no specific user found (e.g., placeholderUsers is empty or user1 doesn't exist)
+      setIsAuthenticated(false);
       setCurrentUser(null);
     }
-  }, []);
+  }, []); // Runs once on mount
+
 
   const handleLogout = () => {
     setIsAuthenticated(false);
@@ -210,7 +216,7 @@ export function Header() {
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{currentUser?.name}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {currentUser?.id}@example.com {currentUser?.isAdmin && (language === 'ar' ? "(مشرف)" : "(Admin)")}
+              {currentUser?.id ? `${currentUser.id}@example.com` : 'guest@example.com'} {currentUser?.isAdmin && (language === 'ar' ? "(مشرف)" : "(Admin)")}
             </p>
           </div>
         </DropdownMenuLabel>
