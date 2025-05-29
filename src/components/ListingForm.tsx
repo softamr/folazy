@@ -40,7 +40,7 @@ type ListingFormValues = z.infer<typeof listingFormSchema>;
 const defaultValues: Partial<ListingFormValues> = {
   title: '',
   description: '',
-  price: undefined,
+  price: '', // Changed from undefined to empty string
   categoryId: '',
   subcategoryId: '',
   location: '',
