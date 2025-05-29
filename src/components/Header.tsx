@@ -92,7 +92,7 @@ const translations = {
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false); 
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { language, setLanguage } = useLanguage();
@@ -118,14 +118,14 @@ export function Header() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
-    router.push('/'); 
+    router.push('/');
     alert('Logged out successfully');
   };
 
   const toggleLanguage = () => {
     setLanguage(language === 'en' ? 'ar' : 'en');
   };
-  
+
   const getCategoryName = (categoryId: string) => {
     const category = placeholderCategories.find(c => c.id === categoryId);
     if (!category) return categoryId; // fallback
@@ -144,6 +144,9 @@ export function Header() {
         // Add subcategories if needed
         'mobiles': 'هواتف محمولة',
         'cars-for-sale': 'سيارات للبيع',
+        'hobbies': 'هوايات',
+        'industrial': 'أعمال وصناعة',
+        'services': 'خدمات',
       };
       return arNames[categoryId] || category.name;
     }
@@ -156,7 +159,7 @@ export function Header() {
       <Button
         variant="ghost"
         size="sm"
-        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname === href ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-primary'} ${className}`}
+        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname === href ? 'text-primary font-semibold' : 'text-secondary-foreground'} ${className || ''}`}
         onClick={() => setIsMobileMenuOpen(false)}
       >
         {children}
@@ -174,8 +177,8 @@ export function Header() {
       <Button
         variant="ghost"
         size="sm"
-        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname.startsWith(item.href || `/s/${item.id}`) ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-primary'} flex items-center`}
-        onClick={isMobile ? (e) => e.preventDefault() : undefined} 
+        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname.startsWith(item.href || `/s/${item.id}`) ? 'text-primary font-semibold' : 'text-secondary-foreground'} flex items-center`}
+        onClick={isMobile ? (e) => e.preventDefault() : undefined}
       >
         {categoryName} <ChevronDown className="h-3 w-3 ms-1" />
       </Button>
@@ -228,7 +231,7 @@ export function Header() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/profile?tab=listings"> 
+            <Link href="/profile?tab=listings">
               <ListChecks className="me-2 h-4 w-4" /> {t.myListings}
             </Link>
           </DropdownMenuItem>
@@ -257,7 +260,7 @@ export function Header() {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-  
+
   const MobileNav = () => (
     <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
       <SheetTrigger asChild>
@@ -384,7 +387,7 @@ export function Header() {
             </Button>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" size="sm" className="text-sm hidden md:inline-flex" onClick={toggleLanguage}>
             <Globe className="me-1 h-4 w-4" />
