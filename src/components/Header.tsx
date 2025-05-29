@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal, Menu, X, MessageSquare, ListChecks, Settings, ShieldCheck, Globe } from 'lucide-react';
+import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal, Menu, X, MessageSquare, ListChecks, Settings, ShieldCheck, Globe, LogOut as LogOutIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons/Logo';
@@ -24,15 +24,20 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useState, useEffect } from 'react';
-import { mainSiteCategories, secondaryNavCategories, placeholderUsers, placeholderCategories } from '@/lib/placeholder-data';
+import { mainSiteCategories, secondaryNavCategories, placeholderCategories } from '@/lib/placeholder-data'; // placeholderCategories still used for getCategoryName
 import type { Category, User as UserType } from '@/lib/types';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
-import { useLanguage, type Language as AppLanguage } from '@/hooks/useLanguage';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useLanguage } from '@/hooks/useLanguage';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 // Simple translation dictionary
 const translations = {
   en: {
     login: 'Login',
+    logout: 'Log out',
     postYourAd: 'Post Your Ad',
     findPlaceholder: 'Find Cars, Mobile Phones and more...',
     egypt: 'Egypt',
@@ -55,12 +60,12 @@ const translations = {
     messages: 'Messages',
     settings: 'Settings',
     adminDashboard: 'Admin Dashboard',
-    logout: 'Log out',
     viewProfile: 'View Profile',
     loginSignUp: 'Login / Sign Up',
   },
   ar: {
     login: 'تسجيل الدخول',
+    logout: 'تسجيل الخروج',
     postYourAd: 'أضف إعلانك',
     findPlaceholder: 'ابحث عن سيارات، هواتف والمزيد...',
     egypt: 'مصر',
@@ -83,7 +88,6 @@ const translations = {
     messages: 'الرسائل',
     settings: 'الإعدادات',
     adminDashboard: 'لوحة تحكم المشرف',
-    logout: 'تسجيل الخروج',
     viewProfile: 'عرض الملف الشخصي',
     loginSignUp: 'تسجيل الدخول / إنشاء حساب',
   }
@@ -92,34 +96,76 @@ const translations = {
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { language, setLanguage } = useLanguage();
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
 
   const t = translations[language];
 
   useEffect(() => {
-    // Simulate fetching the current user.
-    // In a real app, this would be an API call or auth context.
-    const potentialUser = placeholderUsers.find(u => u.id === 'user1'); // Attempt to find a specific user (e.g., user1)
+    setIsLoadingAuth(true);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setFirebaseAuthUser(user);
+        try {
+          const userDocRef = doc(db, "users", user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            setCurrentUser(userDocSnap.data() as UserType);
+            setIsAuthenticated(true);
+          } else {
+            // Fallback if Firestore doc doesn't exist (should be rare post-signup)
+            setCurrentUser({
+              id: user.uid,
+              name: user.displayName || user.email || "User",
+              email: user.email || "",
+              avatarUrl: user.photoURL || "",
+              joinDate: user.metadata.creationTime || new Date().toISOString(),
+              isAdmin: false, // Default if no Firestore record
+            });
+            setIsAuthenticated(true);
+            console.warn("User document not found in Firestore for UID:", user.uid, "Using basic auth data.");
+          }
+        } catch (error) {
+          console.error("Error fetching user document for header:", error);
+          // Still authenticated, but profile data might be incomplete
+          setCurrentUser({
+            id: user.uid,
+            name: user.displayName || user.email || "User",
+            email: user.email || "",
+            avatarUrl: user.photoURL || "",
+            joinDate: user.metadata.creationTime || new Date().toISOString(),
+            isAdmin: false,
+          });
+          setIsAuthenticated(true);
+          toast({ title: "Profile Error", description: "Could not load full user details for header.", variant: "destructive" });
+        }
+      } else {
+        setFirebaseAuthUser(null);
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+      }
+      setIsLoadingAuth(false);
+    });
 
-    if (potentialUser) {
-      setIsAuthenticated(true);
-      setCurrentUser(potentialUser);
-    } else {
-      // If no specific user found (e.g., placeholderUsers is empty or user1 doesn't exist)
-      setIsAuthenticated(false);
-      setCurrentUser(null);
+    return () => unsubscribe();
+  }, [toast]);
+
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+      // onAuthStateChanged will handle setting currentUser to null and isAuthenticated to false
+      router.push('/');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({ title: 'Logout Failed', description: 'Could not log out. Please try again.', variant: 'destructive' });
     }
-  }, []); // Runs once on mount
-
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setCurrentUser(null);
-    router.push('/');
-    alert('Logged out successfully');
   };
 
   const toggleLanguage = () => {
@@ -130,7 +176,6 @@ export function Header() {
     const category = placeholderCategories.find(c => c.id === categoryId);
     if (!category) return categoryId; // fallback
     if (language === 'ar') {
-      // This is a simplified mapping. A more robust solution would involve dedicated translation keys for categories.
       const arNames: Record<string, string> = {
         'vehicles': 'مركبات',
         'properties': 'عقارات',
@@ -141,7 +186,6 @@ export function Header() {
         'pets': 'حيوانات أليفة',
         'kids': 'أطفال ورضع',
         'more_categories': 'المزيد',
-        // Add subcategories if needed
         'mobiles': 'هواتف محمولة',
         'cars-for-sale': 'سيارات للبيع',
         'hobbies': 'هوايات',
@@ -159,7 +203,7 @@ export function Header() {
       <Button
         variant="ghost"
         size="sm"
-        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname === href ? 'text-primary font-semibold' : 'text-secondary-foreground'} ${className || ''}`}
+        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname === href ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-accent-foreground hover:bg-accent'} ${className || ''}`}
         onClick={() => setIsMobileMenuOpen(false)}
       >
         {children}
@@ -177,7 +221,7 @@ export function Header() {
       <Button
         variant="ghost"
         size="sm"
-        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname.startsWith(item.href || `/s/${item.id}`) ? 'text-primary font-semibold' : 'text-secondary-foreground'} flex items-center`}
+        className={`text-xs sm:text-sm font-medium whitespace-nowrap ${pathname.startsWith(item.href || `/s/${item.id}`) ? 'text-primary font-semibold' : 'text-secondary-foreground hover:text-accent-foreground hover:bg-accent'} flex items-center`}
         onClick={isMobile ? (e) => e.preventDefault() : undefined}
       >
         {categoryName} <ChevronDown className="h-3 w-3 ms-1" />
@@ -204,63 +248,72 @@ export function Header() {
     );
   };
 
-  const UserMenu = () => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={currentUser?.avatarUrl || "https://placehold.co/100x100.png"} alt="User Avatar" data-ai-hint="avatar person"/>
-            <AvatarFallback>{currentUser?.name.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{currentUser?.name}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {currentUser?.id ? `${currentUser.id}@example.com` : 'guest@example.com'} {currentUser?.isAdmin && (language === 'ar' ? "(مشرف)" : "(Admin)")}
-            </p>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href="/profile">
-              <UserCircle className="me-2 h-4 w-4" /> {t.profile}
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/profile?tab=listings">
-              <ListChecks className="me-2 h-4 w-4" /> {t.myListings}
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/messages">
-              <MessageSquare className="me-2 h-4 w-4" /> {t.messages}
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/profile?tab=settings">
-              <Settings className="me-2 h-4 w-4" /> {t.settings}
-            </Link>
-          </DropdownMenuItem>
-          {currentUser?.isAdmin && (
+  const UserMenu = () => {
+    if (isLoadingAuth || !currentUser) { // Show skeleton or basic login if still loading or no user
+        return (
+            <Button variant="ghost" asChild size="sm" className="text-sm hidden md:inline-flex">
+                <Link href="/auth/login">{t.login}</Link>
+            </Button>
+        );
+    }
+    return (
+        <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+            <Avatar className="h-9 w-9">
+                <AvatarImage src={currentUser?.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser?.name || "User"} data-ai-hint="avatar person"/>
+                <AvatarFallback>{currentUser?.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+            </Avatar>
+            </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{currentUser?.name}</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                {currentUser?.email} {currentUser?.isAdmin && (language === 'ar' ? "(مشرف)" : "(Admin)")}
+                </p>
+            </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
             <DropdownMenuItem asChild>
-              <Link href="/admin/dashboard">
-                <ShieldCheck className="me-2 h-4 w-4" /> {t.adminDashboard}
-              </Link>
+                <Link href="/profile">
+                <UserCircle className="me-2 h-4 w-4" /> {t.profile}
+                </Link>
             </DropdownMenuItem>
-          )}
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>
-           {t.logout}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
+            <DropdownMenuItem asChild>
+                <Link href="/profile?tab=listings">
+                <ListChecks className="me-2 h-4 w-4" /> {t.myListings}
+                </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+                <Link href="/messages">
+                <MessageSquare className="me-2 h-4 w-4" /> {t.messages}
+                </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+                <Link href="/profile?tab=settings">
+                <Settings className="me-2 h-4 w-4" /> {t.settings}
+                </Link>
+            </DropdownMenuItem>
+            {currentUser?.isAdmin && (
+                <DropdownMenuItem asChild>
+                <Link href="/admin/dashboard">
+                    <ShieldCheck className="me-2 h-4 w-4" /> {t.adminDashboard}
+                </Link>
+                </DropdownMenuItem>
+            )}
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+                <LogOutIcon className="me-2 h-4 w-4" /> {t.logout}
+            </DropdownMenuItem>
+        </DropdownMenuContent>
+        </DropdownMenu>
+    );
+  };
+  
   const MobileNav = () => (
     <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
       <SheetTrigger asChild>
@@ -303,34 +356,34 @@ export function Header() {
           </nav>
           <div className="p-4 border-t mt-auto">
             {isAuthenticated && currentUser ? (
-              <div className="flex items-center gap-2 mb-2">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={currentUser.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser.name} data-ai-hint="avatar person"/>
-                  <AvatarFallback>{currentUser.name.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-medium">{currentUser.name} {currentUser?.isAdmin && <span className="text-xs text-primary">({language === 'ar' ? "مشرف" : "Admin"})</span>}</p>
-                  <Link href="/profile" className="text-xs text-primary hover:underline" onClick={() => setIsMobileMenuOpen(false)}>{t.viewProfile}</Link>
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={currentUser.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser.name} data-ai-hint="avatar person"/>
+                    <AvatarFallback>{currentUser.name.charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-medium">{currentUser.name} {currentUser?.isAdmin && <span className="text-xs text-primary">({language === 'ar' ? "مشرف" : "Admin"})</span>}</p>
+                    <Link href="/profile" className="text-xs text-primary hover:underline" onClick={() => setIsMobileMenuOpen(false)}>{t.viewProfile}</Link>
+                  </div>
                 </div>
-              </div>
+                {currentUser?.isAdmin && (
+                    <Button variant="outline" asChild className="w-full mb-2" onClick={() => setIsMobileMenuOpen(false)}>
+                        <Link href="/admin/dashboard">{t.adminDashboard}</Link>
+                    </Button>
+                )}
+                <Button variant="ghost" onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="w-full mt-2">
+                  <LogOutIcon className="me-2 h-4 w-4" /> {t.logout}
+                </Button>
+              </>
             ) : (
               <Button variant="outline" asChild className="w-full mb-2" onClick={() => setIsMobileMenuOpen(false)}>
                 <Link href="/auth/login">{t.loginSignUp}</Link>
               </Button>
             )}
-             {currentUser?.isAdmin && (
-                 <Button variant="outline" asChild className="w-full mb-2" onClick={() => setIsMobileMenuOpen(false)}>
-                    <Link href="/admin/dashboard">{t.adminDashboard}</Link>
-                 </Button>
-            )}
-            <Button asChild size="sm" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setIsMobileMenuOpen(false)}>
+            <Button asChild size="sm" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mt-2" onClick={() => setIsMobileMenuOpen(false)}>
               <Link href="/listings/new">{t.postYourAd}</Link>
             </Button>
-             {isAuthenticated && (
-                <Button variant="ghost" onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }} className="w-full mt-2">
-                  {t.logout}
-                </Button>
-              )}
           </div>
         </div>
       </SheetContent>
@@ -393,7 +446,9 @@ export function Header() {
             <Globe className="me-1 h-4 w-4" />
             {language === 'en' ? t.arabic : t.english}
           </Button>
-          {isAuthenticated && currentUser ? (
+          {isLoadingAuth ? (
+            <Button variant="ghost" size="sm" className="text-sm hidden md:inline-flex">Loading...</Button>
+          ) : isAuthenticated && currentUser ? (
              <UserMenu />
           ) : (
             <Button variant="ghost" asChild size="sm" className="text-sm hidden md:inline-flex">
