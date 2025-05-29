@@ -1,9 +1,16 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Basic RTL considerations */
+html[dir="rtl"] body {
+  /* If using a specific Arabic font, define it here or in RootLayout */
+  /* font-family: 'Tajawal', var(--font-geist-sans), Arial, Helvetica, sans-serif; */
 }
 
 @layer base {
@@ -110,3 +117,11 @@ body {
     flex-grow: 1;
   }
 }
+
+/* RTL specific adjustments for Lucide icons if needed, or use logical margins/paddings in components */
+html[dir="rtl"] .lucide-chevron-down {
+  /* Example: ensure dropdown arrows point correctly if not handled by transform */
+}
+/* Tailwind's `ms-` and `me-` (margin-start, margin-end) and `ps-`, `pe-` (padding-start, padding-end) classes handle LTR/RTL automatically. */
+/* Using `mr-` (margin-right) needs to be `ms-` (margin-start) for RTL, and `ml-` to `me-` */
+/* I've updated some in Header.tsx (e.g. me-2, ms-1). This should be reviewed across the app for full RTL. */
