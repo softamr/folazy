@@ -43,7 +43,7 @@ type ListingFormValues = z.infer<typeof listingFormSchema>;
 const defaultValues: Partial<ListingFormValues> = {
   title: '',
   description: '',
-  price: '',
+  price: '', // Keep as empty string for controlled input
   categoryId: '',
   subcategoryId: '',
   location: '',
@@ -104,7 +104,6 @@ export function ListingForm() {
       if (userDocSnap.exists()) {
         seller = userDocSnap.data() as User;
       } else {
-        // Fallback if user doc doesn't exist (shouldn't happen ideally)
         seller = {
           id: currentUser.uid,
           name: currentUser.displayName || "Anonymous User",
@@ -115,33 +114,30 @@ export function ListingForm() {
         };
       }
 
-      const mainCategory = placeholderCategories.find(c => c.id === data.categoryId);
-      if (!mainCategory) {
+      const mainCategoryData = placeholderCategories.find(c => c.id === data.categoryId);
+      if (!mainCategoryData) {
         throw new Error("Selected category not found.");
       }
 
-      let subCategory: Category | undefined = undefined;
+      let subCategoryData: Category | undefined = undefined;
       if (data.subcategoryId && data.subcategoryId !== NO_SUBCATEGORY_VALUE) {
-        subCategory = mainCategory.subcategories?.find(sc => sc.id === data.subcategoryId);
+        subCategoryData = mainCategoryData.subcategories?.find(sc => sc.id === data.subcategoryId);
       }
       
-      // For now, images are not uploaded to Firebase Storage.
-      // This would be a separate, more complex step involving Firebase Storage SDK.
-      // We'll store an empty array for image URLs.
       const imageUrls: string[] = []; 
 
       const newListingData: Omit<ListingType, 'id'> = {
         title: data.title,
         description: data.description,
         price: data.price,
-        category: { id: mainCategory.id, name: mainCategory.name, icon: mainCategory.icon }, // Store simplified category
-        subcategory: subCategory ? { id: subCategory.id, name: subCategory.name, icon: subCategory.icon } : undefined,
+        category: { id: mainCategoryData.id, name: mainCategoryData.name }, // Store simplified category info
+        subcategory: subCategoryData ? { id: subCategoryData.id, name: subCategoryData.name } : undefined, // Store simplified subcategory info
         location: data.location,
-        images: imageUrls, // Empty for now
+        images: imageUrls, 
         seller: seller,
         postedDate: new Date().toISOString(),
         status: 'pending',
-        isFeatured: false, // Default
+        isFeatured: false, 
       };
 
       await addDoc(collection(db, 'listings'), newListingData);
@@ -154,7 +150,7 @@ export function ListingForm() {
       setImagePreviews([]);
       setSelectedCategory(null);
       setSubcategories([]);
-    } catch (error) {
+    } catch (error)
       console.error("Error submitting listing:", error);
       toast({
         title: "Submission Failed",
@@ -172,7 +168,7 @@ export function ListingForm() {
       imagePreviews.forEach(previewUrl => URL.revokeObjectURL(previewUrl));
       const newPreviews = filesArray.map(file => URL.createObjectURL(file));
       setImagePreviews(newPreviews);
-      form.setValue('images', event.target.files); // `react-hook-form` will store the FileList
+      form.setValue('images', event.target.files); 
     }
   };
 
@@ -364,5 +360,4 @@ export function ListingForm() {
     </div>
   );
 }
-
     

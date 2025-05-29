@@ -19,6 +19,13 @@ export interface Category {
   href?: string; // For linking directly, e.g. in PopularCategories
 }
 
+// Simplified category information to be stored within a Listing document
+export type ListingCategoryInfo = {
+  id: string;
+  name: string;
+  // Does not include icon, href, or subcategories array
+};
+
 export type ListingStatus = 'pending' | 'approved' | 'rejected' | 'sold'; // Added 'sold'
 
 export type Listing = {
@@ -26,8 +33,8 @@ export type Listing = {
   title: string;
   description: string;
   price: number;
-  category: Category; // Main category
-  subcategory?: Category; // Optional subcategory
+  category: ListingCategoryInfo; // Use simplified type for stored category
+  subcategory?: ListingCategoryInfo; // Use simplified type for stored subcategory
   location: string;
   images: string[]; // URLs of images
   seller: User;
@@ -74,4 +81,3 @@ export type Conversation = {
   lastMessage: Message;
   unreadCount: number;
 };
-
