@@ -18,11 +18,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { placeholderCategories } from '@/lib/placeholder-data';
-import type { Category, ListingStatus } from '@/lib/types';
+import type { Category, ListingStatus, User, Listing as ListingType } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImageAnalysisTool } from './ImageAnalysisTool';
-import { Upload, DollarSign, MapPinIcon, TagIcon, ListTree } from 'lucide-react';
+import { Upload, DollarSign, MapPinIcon, TagIcon, ListTree, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { auth, db } from '@/lib/firebase';
+import { addDoc, collection, doc, getDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 const listingFormSchema = z.object({
   title: z.string().min(5, 'Title must be at least 5 characters').max(100, 'Title must be 100 characters or less'),
@@ -31,8 +34,8 @@ const listingFormSchema = z.object({
   categoryId: z.string().min(1, 'Please select a category'),
   subcategoryId: z.string().optional(),
   location: z.string().min(3, 'Location must be at least 3 characters'),
-  images: z.any().optional(),
-  status: z.custom<ListingStatus>().default('pending'), // Added status field
+  images: z.any().optional(), // For file input, actual upload to be handled
+  status: z.custom<ListingStatus>().default('pending'),
 });
 
 type ListingFormValues = z.infer<typeof listingFormSchema>;
@@ -40,16 +43,18 @@ type ListingFormValues = z.infer<typeof listingFormSchema>;
 const defaultValues: Partial<ListingFormValues> = {
   title: '',
   description: '',
-  price: '', // Changed from undefined to empty string
+  price: '',
   categoryId: '',
   subcategoryId: '',
   location: '',
-  status: 'pending', // Default status for new listings
+  status: 'pending',
 };
 
-const NO_SUBCATEGORY_VALUE = "_none_"; // Define a constant for the "no subcategory" option
+const NO_SUBCATEGORY_VALUE = "_none_";
 
 export function ListingForm() {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const form = useForm<ListingFormValues>({
     resolver: zodResolver(listingFormSchema),
     defaultValues,
@@ -67,10 +72,9 @@ export function ListingForm() {
       const category = placeholderCategories.find(cat => cat.id === watchedCategoryId);
       setSelectedCategory(category || null);
       setSubcategories(category?.subcategories || []);
-      // Reset subcategory if the current one isn't valid for the new main category
       const currentSubcategoryId = form.getValues('subcategoryId');
       if (currentSubcategoryId && !category?.subcategories?.find(sc => sc.id === currentSubcategoryId)) {
-        form.setValue('subcategoryId', ''); 
+        form.setValue('subcategoryId', '');
       }
     } else {
       setSelectedCategory(null);
@@ -78,29 +82,97 @@ export function ListingForm() {
     }
   }, [watchedCategoryId, form]);
 
-  function onSubmit(data: ListingFormValues) {
-    const submissionData = {
-      ...data,
-      // Ensure subcategoryId is an empty string if NO_SUBCATEGORY_VALUE was the placeholder
-      subcategoryId: data.subcategoryId === NO_SUBCATEGORY_VALUE ? '' : data.subcategoryId,
-      status: 'pending'
-    };
-    console.log('Form submitted:', submissionData); 
-    alert('Listing submitted for review! (Check console for data)');
-    form.reset();
-    setImagePreviews([]);
-    setSelectedCategory(null);
-    setSubcategories([]);
+  async function onSubmit(data: ListingFormValues) {
+    setIsSubmitting(true);
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+      toast({
+        title: "Authentication Required",
+        description: "You must be logged in to create a listing.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      let seller: User;
+
+      if (userDocSnap.exists()) {
+        seller = userDocSnap.data() as User;
+      } else {
+        // Fallback if user doc doesn't exist (shouldn't happen ideally)
+        seller = {
+          id: currentUser.uid,
+          name: currentUser.displayName || "Anonymous User",
+          email: currentUser.email || "",
+          avatarUrl: currentUser.photoURL || "",
+          joinDate: new Date().toISOString(),
+          isAdmin: false,
+        };
+      }
+
+      const mainCategory = placeholderCategories.find(c => c.id === data.categoryId);
+      if (!mainCategory) {
+        throw new Error("Selected category not found.");
+      }
+
+      let subCategory: Category | undefined = undefined;
+      if (data.subcategoryId && data.subcategoryId !== NO_SUBCATEGORY_VALUE) {
+        subCategory = mainCategory.subcategories?.find(sc => sc.id === data.subcategoryId);
+      }
+      
+      // For now, images are not uploaded to Firebase Storage.
+      // This would be a separate, more complex step involving Firebase Storage SDK.
+      // We'll store an empty array for image URLs.
+      const imageUrls: string[] = []; 
+
+      const newListingData: Omit<ListingType, 'id'> = {
+        title: data.title,
+        description: data.description,
+        price: data.price,
+        category: { id: mainCategory.id, name: mainCategory.name, icon: mainCategory.icon }, // Store simplified category
+        subcategory: subCategory ? { id: subCategory.id, name: subCategory.name, icon: subCategory.icon } : undefined,
+        location: data.location,
+        images: imageUrls, // Empty for now
+        seller: seller,
+        postedDate: new Date().toISOString(),
+        status: 'pending',
+        isFeatured: false, // Default
+      };
+
+      await addDoc(collection(db, 'listings'), newListingData);
+
+      toast({
+        title: "Listing Submitted!",
+        description: "Your listing has been submitted for review.",
+      });
+      form.reset();
+      setImagePreviews([]);
+      setSelectedCategory(null);
+      setSubcategories([]);
+    } catch (error) {
+      console.error("Error submitting listing:", error);
+      toast({
+        title: "Submission Failed",
+        description: (error as Error).message || "Could not submit your listing. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
   
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
-      // Free up memory from previous previews
       imagePreviews.forEach(previewUrl => URL.revokeObjectURL(previewUrl));
       const newPreviews = filesArray.map(file => URL.createObjectURL(file));
       setImagePreviews(newPreviews);
-      form.setValue('images', event.target.files);
+      form.setValue('images', event.target.files); // `react-hook-form` will store the FileList
     }
   };
 
@@ -121,7 +193,7 @@ export function ListingForm() {
                   <FormItem>
                     <FormLabel>Title</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Vintage Leather Jacket" {...field} />
+                      <Input placeholder="e.g., Vintage Leather Jacket" {...field} disabled={isSubmitting} />
                     </FormControl>
                     <FormDescription>A catchy title for your listing.</FormDescription>
                     <FormMessage />
@@ -139,6 +211,7 @@ export function ListingForm() {
                         placeholder="Describe your item in detail..."
                         className="resize-y min-h-[120px]"
                         {...field}
+                        disabled={isSubmitting}
                       />
                     </FormControl>
                     <FormDescription>Provide all relevant details about your item.</FormDescription>
@@ -154,7 +227,7 @@ export function ListingForm() {
                     <FormItem>
                       <FormLabel className="flex items-center"><DollarSign className="h-4 w-4 mr-1"/>Price</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="e.g., 50.00" {...field} />
+                        <Input type="number" placeholder="e.g., 50.00" {...field} disabled={isSubmitting} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -167,7 +240,7 @@ export function ListingForm() {
                     <FormItem>
                       <FormLabel className="flex items-center"><MapPinIcon className="h-4 w-4 mr-1"/>Location</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., City, State" {...field} />
+                        <Input placeholder="e.g., City, State" {...field} disabled={isSubmitting} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -185,9 +258,10 @@ export function ListingForm() {
                       <Select 
                         onValueChange={(value) => {
                           field.onChange(value);
-                          form.setValue('subcategoryId', ''); // Reset subcategory when main category changes
+                          form.setValue('subcategoryId', ''); 
                         }} 
                         defaultValue={field.value}
+                        disabled={isSubmitting}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -215,13 +289,10 @@ export function ListingForm() {
                         <FormLabel className="flex items-center"><ListTree className="h-4 w-4 mr-1"/>Subcategory</FormLabel>
                         <Select
                           onValueChange={(value) => {
-                            // If "No subcategory" is selected, store an empty string in the form
-                            // Otherwise, store the actual subcategory ID
                             field.onChange(value === NO_SUBCATEGORY_VALUE ? '' : value);
                           }}
-                          // If field.value is empty (no subcategory selected), use NO_SUBCATEGORY_VALUE for Select's value
-                          // to show "No subcategory / General" as selected. Otherwise, use the actual field.value.
                           value={field.value || NO_SUBCATEGORY_VALUE}
+                          disabled={isSubmitting}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -256,12 +327,11 @@ export function ListingForm() {
                         multiple 
                         accept="image/*" 
                         onChange={handleImageChange}
-                        // Remove value from controlled file input
-                        // value={undefined} 
+                        disabled={isSubmitting}
                         className="file:text-sm file:font-medium"
                       />
                     </FormControl>
-                    <FormDescription>You can upload multiple images.</FormDescription>
+                    <FormDescription>You can upload multiple images (upload to server not yet implemented).</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -274,7 +344,16 @@ export function ListingForm() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full sm:w-auto" size="lg">Submit for Review</Button>
+              <Button type="submit" className="w-full sm:w-auto" size="lg" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit for Review'
+                )}
+              </Button>
             </form>
           </Form>
         </CardContent>
@@ -285,3 +364,5 @@ export function ListingForm() {
     </div>
   );
 }
+
+    

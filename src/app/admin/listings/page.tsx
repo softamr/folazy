@@ -1,8 +1,8 @@
+
 // src/app/admin/listings/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { placeholderListings as initialListings, placeholderUsers } from '@/lib/placeholder-data';
+import { useState, useEffect, useCallback } from 'react';
 import type { Listing, ListingStatus } from '@/lib/types';
 import {
   Table,
@@ -17,45 +17,82 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, CheckCircle, XCircle, Hourglass, Eye, Search, Filter } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, CheckCircle, XCircle, Hourglass, Eye, Search, Filter, Loader2, PackageOpen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import Link from 'next/link';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, Timestamp } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ListingManagementPage() {
-  const [listings, setListings] = useState<Listing[]>(initialListings);
+  const { toast } = useToast();
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ListingStatus | 'all'>('all');
 
-  // Simulate API call for updating listing status
-  const handleUpdateStatus = (listingId: string, newStatus: ListingStatus) => {
-    setListings(prevListings =>
-      prevListings.map(listing =>
-        listing.id === listingId ? { ...listing, status: newStatus } : listing
-      )
+  useEffect(() => {
+    setIsLoading(true);
+    const q = query(collection(db, 'listings'), orderBy('postedDate', 'desc'));
+    const unsubscribe = onSnapshot(q, 
+      (querySnapshot) => {
+        const fetchedListings: Listing[] = [];
+        querySnapshot.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          // Convert Firestore Timestamps to string if necessary, or handle as Date objects
+          // For simplicity, assuming postedDate is stored as ISO string or can be converted
+          let postedDate = data.postedDate;
+          if (postedDate instanceof Timestamp) {
+            postedDate = postedDate.toDate().toISOString();
+          }
+
+          fetchedListings.push({ 
+            ...data, 
+            id: docSnapshot.id,
+            postedDate: postedDate,
+            // Ensure category and seller objects are correctly formed if they were stored differently
+            category: data.category || { id: 'unknown', name: 'Unknown' },
+            seller: data.seller || { id: 'unknown', name: 'Unknown Seller', email: '', joinDate: new Date().toISOString() },
+           } as Listing);
+        });
+        setListings(fetchedListings);
+        setIsLoading(false);
+      }, 
+      (error) => {
+        console.error("Error fetching listings: ", error);
+        toast({ title: "Error", description: "Could not fetch listings.", variant: "destructive" });
+        setIsLoading(false);
+      }
     );
-    // In a real app: await api.updateListingStatus(listingId, newStatus);
-    alert(`Listing ${listingId} status updated to ${newStatus}. (Simulated)`);
+    return () => unsubscribe(); // Cleanup subscription on unmount
+  }, [toast]);
+
+  const handleUpdateStatus = async (listingId: string, newStatus: ListingStatus) => {
+    const listingRef = doc(db, 'listings', listingId);
+    try {
+      await updateDoc(listingRef, { status: newStatus });
+      toast({ title: "Status Updated", description: `Listing status changed to ${newStatus}.` });
+    } catch (error) {
+      console.error("Error updating status: ", error);
+      toast({ title: "Error", description: "Could not update listing status.", variant: "destructive" });
+    }
   };
 
-  const handleDeleteListing = (listingId: string) => {
+  const handleDeleteListing = async (listingId: string) => {
     if (window.confirm(`Are you sure you want to delete listing ${listingId}? This action cannot be undone.`)) {
-        setListings(prevListings => prevListings.filter(listing => listing.id !== listingId));
-        alert(`Listing ${listingId} deleted. (Simulated)`);
+      const listingRef = doc(db, 'listings', listingId);
+      try {
+        await deleteDoc(listingRef);
+        toast({ title: "Listing Deleted", description: `Listing ${listingId} has been deleted.` });
+      } catch (error) {
+        console.error("Error deleting listing: ", error);
+        toast({ title: "Error", description: "Could not delete listing.", variant: "destructive" });
+      }
     }
   };
 
-  const getStatusBadgeVariant = (status: ListingStatus) => {
-    switch (status) {
-      case 'approved': return 'default'; // Greenish or primary
-      case 'pending': return 'secondary'; // Yellowish or neutral
-      case 'rejected': return 'destructive'; // Reddish
-      case 'sold': return 'outline'; // Bluish or distinct
-      default: return 'outline';
-    }
-  };
-
-   const getStatusBadgeClasses = (status: ListingStatus) => {
+  const getStatusBadgeClasses = (status: ListingStatus) => {
     switch (status) {
       case 'approved': return 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900 dark:text-green-300 dark:border-green-700';
       case 'pending': return 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700';
@@ -65,14 +102,22 @@ export default function ListingManagementPage() {
     }
   };
 
-
   const filteredListings = listings.filter(listing => {
-    const matchesSearch = listing.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          listing.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          listing.seller.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (listing.title?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                          (listing.id?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                          (listing.seller?.name?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || listing.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-15rem)] py-12">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Loading listings...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -123,102 +168,110 @@ export default function ListingManagementPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[60px]">Image</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Seller</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Posted Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredListings.map((listing) => (
-                <TableRow key={listing.id}>
-                  <TableCell>
-                    <Image
-                      src={listing.images[0] || 'https://placehold.co/100x100.png'}
-                      alt={listing.title}
-                      width={40}
-                      height={40}
-                      className="rounded object-cover aspect-square"
-                      data-ai-hint="product thumbnail"
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium max-w-[200px] truncate">
-                    <Link href={`/listings/${listing.id}`} target="_blank" className="hover:underline" title={listing.title}>
-                        {listing.title}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{listing.seller.name}</TableCell>
-                  <TableCell className="text-muted-foreground">${listing.price.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusBadgeClasses(listing.status)}>
-                      {listing.status.charAt(0).toUpperCase() + listing.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{new Date(listing.postedDate).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                           <span className="sr-only">Listing Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Manage Listing</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {listing.status !== 'approved' && (
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(listing.id, 'approved')}>
-                            <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Approve
-                          </DropdownMenuItem>
-                        )}
-                        {listing.status !== 'rejected' && (
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(listing.id, 'rejected')}>
-                            <XCircle className="mr-2 h-4 w-4 text-red-500" /> Reject
-                          </DropdownMenuItem>
-                        )}
-                        {listing.status !== 'pending' && listing.status !== 'sold' && (
-                            <DropdownMenuItem onClick={() => handleUpdateStatus(listing.id, 'pending')}>
-                                <Hourglass className="mr-2 h-4 w-4 text-yellow-500" /> Mark as Pending
-                            </DropdownMenuItem>
-                        )}
-                         {listing.status !== 'sold' && (
-                            <DropdownMenuItem onClick={() => handleUpdateStatus(listing.id, 'sold')}>
-                                <Badge className="mr-2 h-4 w-4" /> Mark as Sold
-                            </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link href={`/listings/${listing.id}?admin_view=true`} target="_blank">
-                            <Eye className="mr-2 h-4 w-4" /> View Listing
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => alert(`Editing listing ${listing.id} (placeholder)`)}>
-                          <Edit className="mr-2 h-4 w-4" /> Edit Listing
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDeleteListing(listing.id)}
-                          className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/50"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete Listing
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {filteredListings.length === 0 ? (
+            <div className="py-10 text-center">
+              <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">
+                {listings.length === 0 ? "No listings in the system yet." : "No listings found matching your criteria."}
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[60px]">Image</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Seller</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Posted Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredListings.length === 0 && (
-            <p className="p-4 text-center text-muted-foreground">No listings found matching your criteria.</p>
+              </TableHeader>
+              <TableBody>
+                {filteredListings.map((listing) => (
+                  <TableRow key={listing.id}>
+                    <TableCell>
+                      <Image
+                        src={(listing.images && listing.images.length > 0 && listing.images[0]) || 'https://placehold.co/100x100.png'}
+                        alt={listing.title || 'Listing image'}
+                        width={40}
+                        height={40}
+                        className="rounded object-cover aspect-square"
+                        data-ai-hint="product thumbnail"
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium max-w-[200px] truncate">
+                      <Link href={`/listings/${listing.id}`} target="_blank" className="hover:underline" title={listing.title}>
+                          {listing.title || 'Untitled Listing'}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{listing.seller?.name || 'N/A'}</TableCell>
+                    <TableCell className="text-muted-foreground">${listing.price?.toLocaleString() || '0'}</TableCell>
+                    <TableCell>
+                      <Badge className={getStatusBadgeClasses(listing.status)}>
+                        {listing.status.charAt(0).toUpperCase() + listing.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{listing.postedDate ? new Date(listing.postedDate).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                             <span className="sr-only">Listing Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Manage Listing</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          {listing.status !== 'approved' && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(listing.id, 'approved')}>
+                              <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Approve
+                            </DropdownMenuItem>
+                          )}
+                          {listing.status !== 'rejected' && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(listing.id, 'rejected')}>
+                              <XCircle className="mr-2 h-4 w-4 text-red-500" /> Reject
+                            </DropdownMenuItem>
+                          )}
+                          {listing.status !== 'pending' && listing.status !== 'sold' && (
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(listing.id, 'pending')}>
+                                  <Hourglass className="mr-2 h-4 w-4 text-yellow-500" /> Mark as Pending
+                              </DropdownMenuItem>
+                          )}
+                           {listing.status !== 'sold' && (
+                              <DropdownMenuItem onClick={() => handleUpdateStatus(listing.id, 'sold')}>
+                                  <Badge className="mr-2 h-4 w-4" /> Mark as Sold {/* Consider a more distinct icon for sold */}
+                              </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem asChild>
+                            <Link href={`/listings/${listing.id}?admin_view=true`} target="_blank">
+                              <Eye className="mr-2 h-4 w-4" /> View Listing
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toast({ title: "Edit Action", description: `Editing listing ${listing.id} (not implemented)` })}>
+                            <Edit className="mr-2 h-4 w-4" /> Edit Listing
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteListing(listing.id)}
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/50"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete Listing
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
+
+    
