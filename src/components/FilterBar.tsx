@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -9,15 +10,27 @@ import { placeholderCategories } from '@/lib/placeholder-data';
 import { Filter, Search, X } from 'lucide-react';
 import React, { useState } from 'react';
 
+const ALL_CATEGORIES_VALUE = "_all_categories_";
+
 export function FilterBar() {
   const [priceRange, setPriceRange] = useState([0, 2000]);
   const [location, setLocation] = useState('');
+  // The 'category' state will hold the actual filter value (empty string for all, or category ID)
+  // This is also passed to the Select component's value prop.
   const [category, setCategory] = useState('');
+
+  const handleCategoryChange = (selectedValue: string) => {
+    if (selectedValue === ALL_CATEGORIES_VALUE) {
+      setCategory(''); // Set to empty string to signify "All Categories" / no filter
+    } else {
+      setCategory(selectedValue); // Set to the actual category ID
+    }
+  };
 
   const handleResetFilters = () => {
     setPriceRange([0, 2000]);
     setLocation('');
-    setCategory('');
+    setCategory(''); // Reset category to empty string, Select will show placeholder
   };
 
   return (
@@ -25,12 +38,16 @@ export function FilterBar() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
         <div>
           <Label htmlFor="category-filter" className="text-sm font-medium">Category</Label>
-          <Select value={category} onValueChange={setCategory}>
+          {/* The Select's value is `category`. When `category` is '', the placeholder shows.
+              When a specific category is selected, `category` is its ID.
+              When "All Categories" is selected from dropdown, `handleCategoryChange` sets `category` to ''.
+          */}
+          <Select value={category || ALL_CATEGORIES_VALUE} onValueChange={handleCategoryChange}>
             <SelectTrigger id="category-filter" className="w-full mt-1">
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Categories</SelectItem>
+              <SelectItem value={ALL_CATEGORIES_VALUE}>All Categories</SelectItem>
               {placeholderCategories.map((cat) => (
                 <SelectItem key={cat.id} value={cat.id}>
                   {cat.name}
