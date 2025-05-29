@@ -18,15 +18,15 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { LogIn, UserPlus, Mail, Lock, User as UserIcon } from 'lucide-react'; // Added UserIcon
+import { LogIn, UserPlus, Mail, Lock, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
-import { auth, db } from '@/lib/firebase'; // Import Firebase auth and db
+import { auth, db } from '@/lib/firebase';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   type AuthError
 } from 'firebase/auth';
-import { doc, setDoc } from "firebase/firestore"; // Import Firestore functions
+import { doc, setDoc } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import type { User } from '@/lib/types';
 
@@ -70,7 +70,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     mode: 'onChange',
   });
 
-  const handleFirebaseAuthError = (error: AuthError) => {
+  const handleAuthError = (error: AuthError) => {
     let message = 'An unexpected error occurred. Please try again.';
     switch (error.code) {
       case 'auth/invalid-email':
@@ -91,7 +91,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         message = 'Password is too weak. It must be at least 6 characters long.';
         break;
       default:
-        console.error(`${mode} error:`, error);
+        console.error(`${mode} error (Auth specific):`, error);
         message = error.message || message; 
     }
     toast({
@@ -105,7 +105,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     setIsLoading(true);
     try {
       if (isSignup) {
-        if (!data.name) { // Should be caught by Zod, but good to double check
+        if (!data.name) {
           toast({ title: 'Signup Failed', description: 'Name is required.', variant: 'destructive' });
           setIsLoading(false);
           return;
@@ -113,14 +113,13 @@ export function AuthForm({ mode }: AuthFormProps) {
         const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
         const firebaseUser = userCredential.user;
 
-        // Create user document in Firestore
         const userDocData: User = {
-          id: firebaseUser.uid, // Use UID as the document ID and the id field
-          name: data.name,
+          id: firebaseUser.uid,
+          name: data.name, // Zod ensures data.name is string here for signup
           email: data.email,
           joinDate: new Date().toISOString(),
-          isAdmin: false, // Default for new users
-          avatarUrl: '', // Default avatar or let user upload later
+          isAdmin: false,
+          avatarUrl: '',
         };
         await setDoc(doc(db, "users", firebaseUser.uid), userDocData);
         
@@ -128,18 +127,34 @@ export function AuthForm({ mode }: AuthFormProps) {
           title: 'Signup Successful!',
           description: 'You have successfully created an account. Redirecting...',
         });
-      } else {
+        setIsLoading(false);
+        router.push('/profile'); 
+      } else { // Login
         await signInWithEmailAndPassword(auth, data.email, data.password);
         toast({
           title: 'Login Successful!',
           description: 'Welcome back! Redirecting...',
         });
+        setIsLoading(false);
+        router.push('/profile'); 
       }
-      router.push('/profile'); 
-    } catch (error) {
-      handleFirebaseAuthError(error as AuthError);
-    } finally {
+    } catch (error: any) {
       setIsLoading(false);
+      console.error("Operation failed:", error); 
+
+      if (error.code && typeof error.code === 'string' && error.code.startsWith('auth/')) {
+        handleAuthError(error as AuthError);
+      } else {
+        let description = error.message || "An unexpected error occurred. Please try again.";
+        if (error.code === 'permission-denied' && isSignup) { // More specific for Firestore permission issue during signup
+          description = "Signup succeeded with authentication, but failed to save user details. Please check database permissions.";
+        }
+        toast({
+          title: isSignup ? "Signup Issue" : "Login Failed",
+          description: description,
+          variant: "destructive",
+        });
+      }
     }
   }
 
@@ -240,4 +255,3 @@ export function AuthForm({ mode }: AuthFormProps) {
     </Card>
   );
 }
-
