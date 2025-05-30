@@ -1,18 +1,43 @@
+
+'use client'; // Converted to client component
+
 import { ListingCard } from '@/components/ListingCard';
-// import { FilterBar } from '@/components/FilterBar'; // FilterBar might be part of a search results page instead
 import { placeholderListings } from '@/lib/placeholder-data';
 import type { Listing } from '@/lib/types';
 import { HeroBanner } from '@/components/HeroBanner';
 import { PopularCategories } from '@/components/PopularCategories';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useLanguage } from '@/hooks/useLanguage'; // Added for translation
+import { useEffect, useState } from 'react'; // Added for client-side filtering
+
+const translations = {
+  en: {
+    freshRecommendations: "Fresh Recommendations",
+    noApprovedListings: "No approved listings found currently.",
+    viewMoreButton: "View More Approved Listings",
+  },
+  ar: {
+    freshRecommendations: "توصيات جديدة",
+    noApprovedListings: "لم يتم العثور على إعلانات معتمدة حاليًا.",
+    viewMoreButton: "عرض المزيد من الإعلانات المعتمدة",
+  }
+};
 
 export default function HomePage() {
-  // In a real app, listings would be fetched from an API
-  // Filter for approved listings only
-  const approvedListings: Listing[] = placeholderListings
-    .filter(listing => listing.status === 'approved')
-    .slice(0, 8); // Show limited listings on homepage
+  const { language } = useLanguage();
+  const t = translations[language];
+  const [approvedListings, setApprovedListings] = useState<Listing[]>([]);
+  const [allApprovedCount, setAllApprovedCount] = useState(0);
+
+  useEffect(() => {
+    // Simulate fetching and filtering client-side for demonstration
+    // In a real app, this filtering might happen on the backend or with more complex client-side data management
+    const filtered = placeholderListings.filter(listing => listing.status === 'approved');
+    setApprovedListings(filtered.slice(0, 8));
+    setAllApprovedCount(filtered.length);
+  }, []);
+
 
   return (
     <div className="space-y-12">
@@ -21,7 +46,7 @@ export default function HomePage() {
       
       <div>
         <h2 className="text-2xl font-semibold mb-6 text-center text-foreground">
-          Fresh Recommendations
+          {t.freshRecommendations}
         </h2>
         {approvedListings.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -31,13 +56,13 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="text-center py-12">
-            <p className="text-xl text-muted-foreground">No approved listings found currently.</p>
+            <p className="text-xl text-muted-foreground">{t.noApprovedListings}</p>
           </div>
         )}
-        {placeholderListings.filter(l => l.status === 'approved').length > 8 && (
+        {allApprovedCount > 8 && (
           <div className="text-center mt-8">
             <Button asChild variant="outline">
-              <Link href="/s/all-listings">View More Approved Listings</Link>
+              <Link href="/s/all-listings">{t.viewMoreButton}</Link>
             </Button>
           </div>
         )}

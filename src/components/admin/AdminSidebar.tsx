@@ -8,24 +8,48 @@ import { LayoutDashboard, Users, FileText, Settings, ShieldCheck, ListOrdered } 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons/Logo';
+import { useLanguage } from '@/hooks/useLanguage';
 
-const adminNavItems = [
-  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/users', label: 'User Management', icon: Users },
-  { href: '/admin/listings', label: 'Listing Management', icon: FileText },
-  { href: '/admin/categories', label: 'Category Management', icon: ListOrdered },
-  // { href: '/admin/settings', label: 'Admin Settings', icon: Settings },
-];
+const translations = {
+  en: {
+    dashboard: 'Dashboard',
+    userManagement: 'User Management',
+    listingManagement: 'Listing Management',
+    categoryManagement: 'Category Management',
+    adminSettings: 'Admin Settings', // Kept for completeness if added back
+    adminArea: 'Admin',
+    exitAdminView: 'Exit Admin View',
+  },
+  ar: {
+    dashboard: 'لوحة التحكم',
+    userManagement: 'إدارة المستخدمين',
+    listingManagement: 'إدارة الإعلانات',
+    categoryManagement: 'إدارة الفئات',
+    adminSettings: 'إعدادات المسؤول',
+    adminArea: 'المسؤول',
+    exitAdminView: 'الخروج من عرض المسؤول',
+  }
+};
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const { language } = useLanguage();
+  const t = translations[language];
+
+  const adminNavItems = [
+    { href: '/admin/dashboard', label: t.dashboard, icon: LayoutDashboard },
+    { href: '/admin/users', label: t.userManagement, icon: Users },
+    { href: '/admin/listings', label: t.listingManagement, icon: FileText },
+    { href: '/admin/categories', label: t.categoryManagement, icon: ListOrdered },
+    // { href: '/admin/settings', label: t.adminSettings, icon: Settings },
+  ];
 
   return (
-    <aside className="w-64 bg-muted/40 border-r flex flex-col">
+    <aside className={`w-64 bg-muted/40 ${language === 'ar' ? 'border-l' : 'border-r'} flex flex-col`}>
       <div className="h-16 flex items-center justify-center border-b px-4">
         <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
           <Logo />
-          <span className="ml-1 text-lg">Admin</span>
+          <span className="ms-1 text-lg">{t.adminArea}</span>
         </Link>
       </div>
       <nav className="flex-grow p-4 space-y-2">
@@ -40,7 +64,7 @@ export function AdminSidebar() {
               className={cn('w-full justify-start', isActive && 'font-semibold')}
             >
               <Link href={item.href}>
-                <Icon className="mr-2 h-4 w-4" />
+                <Icon className={`${language === 'ar' ? 'ms-2' : 'me-2'} h-4 w-4`} />
                 {item.label}
               </Link>
             </Button>
@@ -50,8 +74,8 @@ export function AdminSidebar() {
       <div className="p-4 border-t">
         <Button variant="outline" asChild className="w-full justify-start">
             <Link href="/">
-                <ShieldCheck className="mr-2 h-4 w-4 transform rotate-180 scale-x-[-1]" /> 
-                Exit Admin View
+                <ShieldCheck className={`${language === 'ar' ? 'ms-2' : 'me-2'} h-4 w-4 transform ${language === 'ar' ? '' : 'rotate-180 scale-x-[-1]'}`} /> 
+                {t.exitAdminView}
             </Link>
         </Button>
       </div>

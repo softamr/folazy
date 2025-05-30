@@ -29,22 +29,116 @@ import {
 import { doc, setDoc } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import type { User } from '@/lib/types';
+import { useLanguage } from '@/hooks/useLanguage';
 
+const translations = {
+  en: {
+    // Form schema messages (basic)
+    nameMin: "Name must be at least 2 characters",
+    nameMax: "Name cannot exceed 50 characters",
+    invalidEmail: "Invalid email address",
+    passwordMinSignup: "Password must be at least 8 characters",
+    passwordMinLogin: "Password must be at least 6 characters",
+    confirmPasswordMin: "Password must be at least 8 characters",
+    passwordsDontMatch: "Passwords don't match",
+    // Component text
+    createAccountTitle: "Create an Account",
+    welcomeBackTitle: "Welcome Back!",
+    joinMarketSquareDesc: "Join MarketSquare today.",
+    loginToContinueDesc: "Log in to continue to MarketSquare.",
+    fullNameLabel: "Full Name",
+    fullNamePlaceholder: "John Doe",
+    emailLabel: "Email",
+    emailPlaceholder: "you@example.com",
+    passwordLabel: "Password",
+    passwordPlaceholder: "••••••••",
+    confirmPasswordLabel: "Confirm Password",
+    passwordDescSignup: "Password must be at least 8 characters.",
+    signUpButton: "Sign Up",
+    logInButton: "Log In",
+    signingUpProgress: "Signing up...",
+    loggingInProgress: "Logging in...",
+    alreadyHaveAccount: "Already have an account?",
+    dontHaveAccount: "Don't have an account?",
+    logInLink: "Log in",
+    signUpLink: "Sign up",
+    // Toast messages
+    signupFailedTitle: "Signup Failed",
+    loginFailedTitle: "Login Failed",
+    nameRequiredError: "Name is required.",
+    signupSuccessTitle: "Signup Successful!",
+    signupSuccessDesc: "You have successfully created an account. Redirecting...",
+    loginSuccessTitle: "Login Successful!",
+    loginSuccessDesc: "Welcome back! Redirecting...",
+    // Auth error messages (Firebase specific, can be genericized more)
+    authInvalidEmail: "Invalid email address format.",
+    authAccountDisabled: "This user account has been disabled.",
+    authInvalidCredential: "Invalid email or password.", // Covers user-not-found & wrong-password
+    authEmailInUse: "This email address is already in use.",
+    authWeakPassword: "Password is too weak. It must be at least 6 characters long.",
+    authUnexpectedError: "An unexpected error occurred. Please try again.",
+    authSignupIssue: "Signup Issue",
+    authPermissionDeniedSignup: "Signup succeeded with authentication, but failed to save user details. Please check database permissions."
+  },
+  ar: {
+    nameMin: "يجب أن يتكون الاسم من حرفين على الأقل",
+    nameMax: "لا يمكن أن يتجاوز الاسم 50 حرفًا",
+    invalidEmail: "عنوان بريد إلكتروني غير صالح",
+    passwordMinSignup: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل",
+    passwordMinLogin: "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل",
+    confirmPasswordMin: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل",
+    passwordsDontMatch: "كلمات المرور غير متطابقة",
+    createAccountTitle: "إنشاء حساب",
+    welcomeBackTitle: "أهلاً بعودتك!",
+    joinMarketSquareDesc: "انضم إلى ماركت سكوير اليوم.",
+    loginToContinueDesc: "سجل الدخول للمتابعة إلى ماركت سكوير.",
+    fullNameLabel: "الاسم الكامل",
+    fullNamePlaceholder: "فلان الفلاني",
+    emailLabel: "البريد الإلكتروني",
+    emailPlaceholder: "your@example.com",
+    passwordLabel: "كلمة المرور",
+    passwordPlaceholder: "••••••••",
+    confirmPasswordLabel: "تأكيد كلمة المرور",
+    passwordDescSignup: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.",
+    signUpButton: "إنشاء حساب",
+    logInButton: "تسجيل الدخول",
+    signingUpProgress: "جار إنشاء الحساب...",
+    loggingInProgress: "جار تسجيل الدخول...",
+    alreadyHaveAccount: "هل لديك حساب بالفعل؟",
+    dontHaveAccount: "ليس لديك حساب؟",
+    logInLink: "تسجيل الدخول",
+    signUpLink: "إنشاء حساب",
+    signupFailedTitle: "فشل إنشاء الحساب",
+    loginFailedTitle: "فشل تسجيل الدخول",
+    nameRequiredError: "الاسم مطلوب.",
+    signupSuccessTitle: "تم إنشاء الحساب بنجاح!",
+    signupSuccessDesc: "لقد أنشأت حسابًا بنجاح. جار إعادة التوجيه...",
+    loginSuccessTitle: "تم تسجيل الدخول بنجاح!",
+    loginSuccessDesc: "أهلاً بعودتك! جار إعادة التوجيه...",
+    authInvalidEmail: "صيغة عنوان البريد الإلكتروني غير صالحة.",
+    authAccountDisabled: "تم تعطيل حساب المستخدم هذا.",
+    authInvalidCredential: "البريد الإلكتروني أو كلمة المرور غير صالحة.",
+    authEmailInUse: "عنوان البريد الإلكتروني هذا مستخدم بالفعل.",
+    authWeakPassword: "كلمة المرور ضعيفة جدًا. يجب أن تتكون من 6 أحرف على الأقل.",
+    authUnexpectedError: "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
+    authSignupIssue: "مشكلة في إنشاء الحساب",
+    authPermissionDeniedSignup: "نجح إنشاء الحساب بالمصادقة، ولكن فشل حفظ تفاصيل المستخدم. يرجى التحقق من أذونات قاعدة البيانات."
+  }
+};
 
-const createLoginSchema = (isSignup: boolean) => z.object({
+const createLoginSchema = (isSignup: boolean, t: typeof translations['en'] | typeof translations['ar']) => z.object({
   name: isSignup 
-    ? z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name cannot exceed 50 characters')
+    ? z.string().min(2, t.nameMin).max(50, t.nameMax)
     : z.string().optional(),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(isSignup ? 8 : 6, `Password must be at least ${isSignup ? 8 : 6} characters`),
+  email: z.string().email(t.invalidEmail),
+  password: z.string().min(isSignup ? 8 : 6, isSignup ? t.passwordMinSignup : t.passwordMinLogin),
   confirmPassword: isSignup 
-    ? z.string().min(8, 'Password must be at least 8 characters') 
+    ? z.string().min(8, t.confirmPasswordMin) 
     : z.string().optional(),
 }).refine(data => !isSignup || data.password === data.confirmPassword, {
-  message: "Passwords don't match",
+  message: t.passwordsDontMatch,
   path: ["confirmPassword"],
 });
-
 
 interface AuthFormProps {
   mode: 'login' | 'signup';
@@ -54,9 +148,11 @@ export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast(); 
+  const { language } = useLanguage();
+  const t = translations[language];
 
   const isSignup = mode === 'signup';
-  const authFormSchema = createLoginSchema(isSignup);
+  const authFormSchema = createLoginSchema(isSignup, t);
   type AuthFormValues = z.infer<typeof authFormSchema>;
 
   const form = useForm<AuthFormValues>({
@@ -71,31 +167,21 @@ export function AuthForm({ mode }: AuthFormProps) {
   });
 
   const handleAuthError = (error: AuthError) => {
-    let message = 'An unexpected error occurred. Please try again.';
+    let message = t.authUnexpectedError;
     switch (error.code) {
-      case 'auth/invalid-email':
-        message = 'Invalid email address format.';
-        break;
-      case 'auth/user-disabled':
-        message = 'This user account has been disabled.';
-        break;
+      case 'auth/invalid-email': message = t.authInvalidEmail; break;
+      case 'auth/user-disabled': message = t.authAccountDisabled; break;
       case 'auth/user-not-found':
       case 'auth/wrong-password':
-      case 'auth/invalid-credential': 
-        message = 'Invalid email or password.';
-        break;
-      case 'auth/email-already-in-use':
-        message = 'This email address is already in use.';
-        break;
-      case 'auth/weak-password':
-        message = 'Password is too weak. It must be at least 6 characters long.';
-        break;
+      case 'auth/invalid-credential': message = t.authInvalidCredential; break;
+      case 'auth/email-already-in-use': message = t.authEmailInUse; break;
+      case 'auth/weak-password': message = t.authWeakPassword; break;
       default:
         console.error(`${mode} error (Auth specific):`, error);
         message = error.message || message; 
     }
     toast({
-      title: `${isSignup ? 'Signup' : 'Login'} Failed`,
+      title: isSignup ? t.signupFailedTitle : t.loginFailedTitle,
       description: message,
       variant: 'destructive',
     });
@@ -106,7 +192,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     try {
       if (isSignup) {
         if (!data.name) {
-          toast({ title: 'Signup Failed', description: 'Name is required.', variant: 'destructive' });
+          toast({ title: t.signupFailedTitle, description: t.nameRequiredError, variant: 'destructive' });
           setIsLoading(false);
           return;
         }
@@ -115,7 +201,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
         const userDocData: User = {
           id: firebaseUser.uid,
-          name: data.name, // Zod ensures data.name is string here for signup
+          name: data.name,
           email: data.email,
           joinDate: new Date().toISOString(),
           isAdmin: false,
@@ -124,16 +210,16 @@ export function AuthForm({ mode }: AuthFormProps) {
         await setDoc(doc(db, "users", firebaseUser.uid), userDocData);
         
         toast({
-          title: 'Signup Successful!',
-          description: 'You have successfully created an account. Redirecting...',
+          title: t.signupSuccessTitle,
+          description: t.signupSuccessDesc,
         });
         setIsLoading(false);
         router.push('/profile'); 
       } else { // Login
         await signInWithEmailAndPassword(auth, data.email, data.password);
         toast({
-          title: 'Login Successful!',
-          description: 'Welcome back! Redirecting...',
+          title: t.loginSuccessTitle,
+          description: t.loginSuccessDesc,
         });
         setIsLoading(false);
         router.push('/profile'); 
@@ -145,12 +231,12 @@ export function AuthForm({ mode }: AuthFormProps) {
       if (error.code && typeof error.code === 'string' && error.code.startsWith('auth/')) {
         handleAuthError(error as AuthError);
       } else {
-        let description = error.message || "An unexpected error occurred. Please try again.";
-        if (error.code === 'permission-denied' && isSignup) { // More specific for Firestore permission issue during signup
-          description = "Signup succeeded with authentication, but failed to save user details. Please check database permissions.";
+        let description = error.message || t.authUnexpectedError;
+        if (error.code === 'permission-denied' && isSignup) {
+          description = t.authPermissionDeniedSignup;
         }
         toast({
-          title: isSignup ? "Signup Issue" : "Login Failed",
+          title: isSignup ? t.authSignupIssue : t.loginFailedTitle,
           description: description,
           variant: "destructive",
         });
@@ -162,10 +248,10 @@ export function AuthForm({ mode }: AuthFormProps) {
     <Card className="w-full max-w-md mx-auto shadow-xl">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold">
-          {isSignup ? 'Create an Account' : 'Welcome Back!'}
+          {isSignup ? t.createAccountTitle : t.welcomeBackTitle}
         </CardTitle>
         <CardDescription>
-          {isSignup ? 'Join MarketSquare today.' : 'Log in to continue to MarketSquare.'}
+          {isSignup ? t.joinMarketSquareDesc : t.loginToContinueDesc}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -177,9 +263,9 @@ export function AuthForm({ mode }: AuthFormProps) {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><UserIcon className="h-4 w-4 mr-2 text-muted-foreground"/>Full Name</FormLabel>
+                    <FormLabel className="flex items-center"><UserIcon className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'} text-muted-foreground`}/>{t.fullNameLabel}</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} />
+                      <Input placeholder={t.fullNamePlaceholder} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -191,9 +277,9 @@ export function AuthForm({ mode }: AuthFormProps) {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><Mail className="h-4 w-4 mr-2 text-muted-foreground"/>Email</FormLabel>
+                  <FormLabel className="flex items-center"><Mail className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'} text-muted-foreground`}/>{t.emailLabel}</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="you@example.com" {...field} />
+                    <Input type="email" placeholder={t.emailPlaceholder} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -204,11 +290,11 @@ export function AuthForm({ mode }: AuthFormProps) {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="flex items-center"><Lock className="h-4 w-4 mr-2 text-muted-foreground"/>Password</FormLabel>
+                  <FormLabel className="flex items-center"><Lock className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'} text-muted-foreground`}/>{t.passwordLabel}</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
+                    <Input type="password" placeholder={t.passwordPlaceholder} {...field} />
                   </FormControl>
-                   {isSignup && <FormDescription>Password must be at least 8 characters.</FormDescription>}
+                   {isSignup && <FormDescription>{t.passwordDescSignup}</FormDescription>}
                   <FormMessage />
                 </FormItem>
               )}
@@ -219,9 +305,9 @@ export function AuthForm({ mode }: AuthFormProps) {
                 name="confirmPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center"><Lock className="h-4 w-4 mr-2 text-muted-foreground"/>Confirm Password</FormLabel>
+                    <FormLabel className="flex items-center"><Lock className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'} text-muted-foreground`}/>{t.confirmPasswordLabel}</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} />
+                      <Input type="password" placeholder={t.passwordPlaceholder} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -230,12 +316,12 @@ export function AuthForm({ mode }: AuthFormProps) {
             )}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
-                <>{isSignup ? 'Signing up...' : 'Logging in...'}</>
+                <>{isSignup ? t.signingUpProgress : t.loggingInProgress}</>
               ) : (
                 isSignup ? (
-                  <><UserPlus className="mr-2 h-4 w-4" /> Sign Up</>
+                  <><UserPlus className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} /> {t.signUpButton}</>
                 ) : (
-                  <><LogIn className="mr-2 h-4 w-4" /> Log In</>
+                  <><LogIn className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} /> {t.logInButton}</>
                 )
               )}
             </Button>
@@ -244,10 +330,10 @@ export function AuthForm({ mode }: AuthFormProps) {
       </CardContent>
       <CardFooter className="flex flex-col items-center space-y-2">
         <p className="text-sm text-muted-foreground">
-          {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
+          {isSignup ? t.alreadyHaveAccount : t.dontHaveAccount}{' '}
           <Button variant="link" asChild className="p-0 h-auto">
             <Link href={isSignup ? '/auth/login' : '/auth/signup'}>
-              {isSignup ? 'Log in' : 'Sign up'}
+              {isSignup ? t.logInLink : t.signUpLink}
             </Link>
           </Button>
         </p>

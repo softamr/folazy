@@ -17,7 +17,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-// import { placeholderCategories } from '@/lib/placeholder-data'; // No longer used for categories
 import type { Category, ListingStatus, User, Listing as ListingType, ListingCategoryInfo } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImageAnalysisTool } from './ImageAnalysisTool';
@@ -26,24 +25,111 @@ import { useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { addDoc, collection, doc, getDoc, getDocs, query as firestoreQuery, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
 
-const listingFormSchema = z.object({
-  title: z.string().min(5, 'Title must be at least 5 characters').max(100, 'Title must be 100 characters or less'),
-  description: z.string().min(20, 'Description must be at least 20 characters').max(1000, 'Description must be 1000 characters or less'),
-  price: z.coerce.number().positive('Price must be a positive number'),
-  categoryId: z.string().min(1, 'Please select a category'),
+const translations = {
+  en: {
+    // Zod schema messages (basic)
+    titleMin: "Title must be at least 5 characters",
+    titleMax: "Title must be 100 characters or less",
+    descriptionMin: "Description must be at least 20 characters",
+    descriptionMax: "Description must be 1000 characters or less",
+    pricePositive: "Price must be a positive number",
+    categoryRequired: "Please select a category",
+    locationMin: "Location must be at least 3 characters",
+    // Component text
+    createListingTitle: "Create a New Listing",
+    createListingDesc: "Fill in the details below to post your item for sale. It will be reviewed by an admin before going live.",
+    titleLabel: "Title",
+    titlePlaceholder: "e.g., Vintage Leather Jacket",
+    titleDesc: "A catchy title for your listing.",
+    descriptionLabel: "Description",
+    descriptionPlaceholder: "Describe your item in detail...",
+    descriptionDesc: "Provide all relevant details about your item.",
+    priceLabel: "Price",
+    pricePlaceholder: "e.g., 50.00",
+    locationLabel: "Location",
+    locationPlaceholder: "e.g., City, State",
+    categoryLabel: "Category",
+    loadingCategories: "Loading categories...",
+    selectMainCategoryPlaceholder: "Select a main category",
+    subcategoryLabel: "Subcategory",
+    selectSubcategoryPlaceholder: (categoryName?: string) => categoryName ? `Select subcategory for ${categoryName}` : "Select a subcategory",
+    noSubcategoryOption: "No subcategory / General",
+    uploadImagesLabel: "Upload Images",
+    uploadImagesDesc: "You can upload multiple images (upload to server not yet implemented).",
+    submitButton: "Submit for Review",
+    submittingButton: "Submitting...",
+    // Toast messages
+    authRequiredTitle: "Authentication Required",
+    authRequiredDesc: "You must be logged in to create a listing.",
+    categoryNotFoundError: "Selected category not found.",
+    listingSubmittedTitle: "Listing Submitted!",
+    listingSubmittedDesc: "Your listing has been submitted for review.",
+    submissionFailedTitle: "Submission Failed",
+    submissionFailedDescDefault: "Could not submit your listing. Please try again.",
+    errorTitle: "Error",
+    couldNotLoadCategories: "Could not load categories for the form."
+  },
+  ar: {
+    titleMin: "يجب أن يتكون العنوان من 5 أحرف على الأقل",
+    titleMax: "يجب أن يكون العنوان 100 حرف أو أقل",
+    descriptionMin: "يجب أن يتكون الوصف من 20 حرفًا على الأقل",
+    descriptionMax: "يجب أن يكون الوصف 1000 حرف أو أقل",
+    pricePositive: "يجب أن يكون السعر رقمًا موجبًا",
+    categoryRequired: "الرجاء تحديد فئة",
+    locationMin: "يجب أن يتكون الموقع من 3 أحرف على الأقل",
+    createListingTitle: "إنشاء إعلان جديد",
+    createListingDesc: "املأ التفاصيل أدناه لنشر العنصر الخاص بك للبيع. ستتم مراجعته من قبل المسؤول قبل نشره.",
+    titleLabel: "العنوان",
+    titlePlaceholder: "مثال: سترة جلدية قديمة",
+    titleDesc: "عنوان جذاب لإعلانك.",
+    descriptionLabel: "الوصف",
+    descriptionPlaceholder: "صف العنصر الخاص بك بالتفصيل...",
+    descriptionDesc: "قدم جميع التفاصيل ذات الصلة حول العنصر الخاص بك.",
+    priceLabel: "السعر",
+    pricePlaceholder: "مثال: 50.00",
+    locationLabel: "الموقع",
+    locationPlaceholder: "مثال: المدينة، الدولة",
+    categoryLabel: "الفئة",
+    loadingCategories: "جار تحميل الفئات...",
+    selectMainCategoryPlaceholder: "اختر فئة رئيسية",
+    subcategoryLabel: "الفئة الفرعية",
+    selectSubcategoryPlaceholder: (categoryName?: string) => categoryName ? `اختر فئة فرعية لـ ${categoryName}` : "اختر فئة فرعية",
+    noSubcategoryOption: "بدون فئة فرعية / عام",
+    uploadImagesLabel: "تحميل الصور",
+    uploadImagesDesc: "يمكنك تحميل صور متعددة (لم يتم تنفيذ التحميل إلى الخادم بعد).",
+    submitButton: "إرسال للمراجعة",
+    submittingButton: "جار الإرسال...",
+    authRequiredTitle: "المصادقة مطلوبة",
+    authRequiredDesc: "يجب تسجيل الدخول لإنشاء إعلان.",
+    categoryNotFoundError: "الفئة المحددة غير موجودة.",
+    listingSubmittedTitle: "تم إرسال الإعلان!",
+    listingSubmittedDesc: "تم إرسال إعلانك للمراجعة.",
+    submissionFailedTitle: "فشل الإرسال",
+    submissionFailedDescDefault: "لم نتمكن من إرسال إعلانك. يرجى المحاولة مرة أخرى.",
+    errorTitle: "خطأ",
+    couldNotLoadCategories: "لم نتمكن من تحميل الفئات للنموذج."
+  }
+};
+
+const createListingFormSchema = (t: typeof translations['en'] | typeof translations['ar']) => z.object({
+  title: z.string().min(5, t.titleMin).max(100, t.titleMax),
+  description: z.string().min(20, t.descriptionMin).max(1000, t.descriptionMax),
+  price: z.coerce.number().positive(t.pricePositive),
+  categoryId: z.string().min(1, t.categoryRequired),
   subcategoryId: z.string().optional(),
-  location: z.string().min(3, 'Location must be at least 3 characters'),
-  images: z.any().optional(), // For file input, actual upload to be handled
+  location: z.string().min(3, t.locationMin),
+  images: z.any().optional(),
   status: z.custom<ListingStatus>().default('pending'),
 });
 
-type ListingFormValues = z.infer<typeof listingFormSchema>;
+type ListingFormValues = z.infer<ReturnType<typeof createListingFormSchema>>;
 
 const defaultValues: Partial<ListingFormValues> = {
   title: '',
   description: '',
-  price: '', // Keep as empty string for controlled input
+  price: undefined, // Changed to undefined for coerce.number()
   categoryId: '',
   subcategoryId: '',
   location: '',
@@ -54,6 +140,10 @@ const NO_SUBCATEGORY_VALUE = "_none_";
 
 export function ListingForm() {
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = translations[language];
+  const listingFormSchema = createListingFormSchema(t);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const form = useForm<ListingFormValues>({
     resolver: zodResolver(listingFormSchema),
@@ -62,7 +152,6 @@ export function ListingForm() {
   });
 
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [selectedMainCategory, setSelectedMainCategory] = useState<Category | null>(null);
   const [availableSubcategories, setAvailableSubcategories] = useState<Category[]>([]);
@@ -84,13 +173,13 @@ export function ListingForm() {
         setAllCategories(fetchedCategories);
       } catch (error) {
         console.error("Error fetching categories for form:", error);
-        toast({ title: "Error", description: "Could not load categories for the form.", variant: "destructive" });
+        toast({ title: t.errorTitle, description: t.couldNotLoadCategories, variant: "destructive" });
       } finally {
         setIsLoadingCategories(false);
       }
     };
     fetchCategories();
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => {
     if (watchedCategoryId && allCategories.length > 0) {
@@ -109,12 +198,12 @@ export function ListingForm() {
 
   async function onSubmit(data: ListingFormValues) {
     setIsSubmitting(true);
-    const currentUser = auth.currentUser;
+    const currentUserAuth = auth.currentUser;
 
-    if (!currentUser) {
+    if (!currentUserAuth) {
       toast({
-        title: "Authentication Required",
-        description: "You must be logged in to create a listing.",
+        title: t.authRequiredTitle,
+        description: t.authRequiredDesc,
         variant: "destructive",
       });
       setIsSubmitting(false);
@@ -122,7 +211,7 @@ export function ListingForm() {
     }
 
     try {
-      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDocRef = doc(db, "users", currentUserAuth.uid);
       const userDocSnap = await getDoc(userDocRef);
       let seller: User;
 
@@ -130,10 +219,10 @@ export function ListingForm() {
         seller = userDocSnap.data() as User;
       } else {
         seller = {
-          id: currentUser.uid,
-          name: currentUser.displayName || "Anonymous User",
-          email: currentUser.email || "", 
-          avatarUrl: currentUser.photoURL || "",
+          id: currentUserAuth.uid,
+          name: currentUserAuth.displayName || "Anonymous User",
+          email: currentUserAuth.email || "", 
+          avatarUrl: currentUserAuth.photoURL || "",
           joinDate: new Date().toISOString(), 
           isAdmin: false, 
         };
@@ -141,7 +230,7 @@ export function ListingForm() {
 
       const mainCategoryData = allCategories.find(c => c.id === data.categoryId);
       if (!mainCategoryData) {
-        throw new Error("Selected category not found.");
+        throw new Error(t.categoryNotFoundError);
       }
 
       let subCategoryInfo: ListingCategoryInfo | undefined = undefined;
@@ -153,7 +242,6 @@ export function ListingForm() {
       }
       
       const imageUrls: string[] = []; 
-      // TODO: Implement image upload to Firebase Storage and get URLs
 
       const newListingData: Omit<ListingType, 'id'> = {
         title: data.title,
@@ -172,8 +260,8 @@ export function ListingForm() {
       await addDoc(collection(db, 'listings'), newListingData);
 
       toast({
-        title: "Listing Submitted!",
-        description: "Your listing has been submitted for review.",
+        title: t.listingSubmittedTitle,
+        description: t.listingSubmittedDesc,
       });
       form.reset();
       setImagePreviews([]);
@@ -182,8 +270,8 @@ export function ListingForm() {
     } catch (error) {
       console.error("Error submitting listing:", error);
       toast({
-        title: "Submission Failed",
-        description: (error as Error).message || "Could not submit your listing. Please try again.",
+        title: t.submissionFailedTitle,
+        description: (error as Error).message || t.submissionFailedDescDefault,
         variant: "destructive",
       });
     } finally {
@@ -205,8 +293,8 @@ export function ListingForm() {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       <Card className="md:col-span-2">
         <CardHeader>
-          <CardTitle>Create a New Listing</CardTitle>
-          <CardDescription>Fill in the details below to post your item for sale. It will be reviewed by an admin before going live.</CardDescription>
+          <CardTitle>{t.createListingTitle}</CardTitle>
+          <CardDescription>{t.createListingDesc}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -216,11 +304,11 @@ export function ListingForm() {
                 name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Title</FormLabel>
+                    <FormLabel>{t.titleLabel}</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Vintage Leather Jacket" {...field} disabled={isSubmitting} />
+                      <Input placeholder={t.titlePlaceholder} {...field} disabled={isSubmitting} />
                     </FormControl>
-                    <FormDescription>A catchy title for your listing.</FormDescription>
+                    <FormDescription>{t.titleDesc}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -230,16 +318,16 @@ export function ListingForm() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>{t.descriptionLabel}</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Describe your item in detail..."
+                        placeholder={t.descriptionPlaceholder}
                         className="resize-y min-h-[120px]"
                         {...field}
                         disabled={isSubmitting}
                       />
                     </FormControl>
-                    <FormDescription>Provide all relevant details about your item.</FormDescription>
+                    <FormDescription>{t.descriptionDesc}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -250,9 +338,9 @@ export function ListingForm() {
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center"><DollarSign className="h-4 w-4 mr-1"/>Price</FormLabel>
+                      <FormLabel className="flex items-center"><DollarSign className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`}/>{t.priceLabel}</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="e.g., 50.00" {...field} value={field.value ?? ''} disabled={isSubmitting} />
+                        <Input type="number" placeholder={t.pricePlaceholder} {...field} value={field.value ?? ''} disabled={isSubmitting} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -263,9 +351,9 @@ export function ListingForm() {
                   name="location"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center"><MapPinIcon className="h-4 w-4 mr-1"/>Location</FormLabel>
+                      <FormLabel className="flex items-center"><MapPinIcon className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`}/>{t.locationLabel}</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., City, State" {...field} disabled={isSubmitting} />
+                        <Input placeholder={t.locationPlaceholder} {...field} disabled={isSubmitting} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -279,7 +367,7 @@ export function ListingForm() {
                   name="categoryId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center"><TagIcon className="h-4 w-4 mr-1"/>Category</FormLabel>
+                      <FormLabel className="flex items-center"><TagIcon className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`}/>{t.categoryLabel}</FormLabel>
                       <Select 
                         onValueChange={(value) => {
                           field.onChange(value);
@@ -287,10 +375,11 @@ export function ListingForm() {
                         }} 
                         defaultValue={field.value}
                         disabled={isSubmitting || isLoadingCategories}
+                        dir={language === 'ar' ? 'rtl' : 'ltr'}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder={isLoadingCategories ? "Loading categories..." : "Select a main category"} />
+                            <SelectValue placeholder={isLoadingCategories ? t.loadingCategories : t.selectMainCategoryPlaceholder} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -311,21 +400,22 @@ export function ListingForm() {
                     name="subcategoryId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="flex items-center"><ListTree className="h-4 w-4 mr-1"/>Subcategory</FormLabel>
+                        <FormLabel className="flex items-center"><ListTree className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`}/>{t.subcategoryLabel}</FormLabel>
                         <Select
                           onValueChange={(value) => {
                             field.onChange(value === NO_SUBCATEGORY_VALUE ? '' : value);
                           }}
                           value={field.value || NO_SUBCATEGORY_VALUE} 
                           disabled={isSubmitting || isLoadingCategories}
+                          dir={language === 'ar' ? 'rtl' : 'ltr'}
                         >
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder={`Select subcategory for ${selectedMainCategory.name}`} />
+                              <SelectValue placeholder={t.selectSubcategoryPlaceholder(selectedMainCategory.name)} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value={NO_SUBCATEGORY_VALUE}>No subcategory / General</SelectItem>
+                            <SelectItem value={NO_SUBCATEGORY_VALUE}>{t.noSubcategoryOption}</SelectItem>
                             {availableSubcategories.map((subcat) => (
                               <SelectItem key={subcat.id} value={subcat.id}>
                                 {subcat.name}
@@ -345,7 +435,7 @@ export function ListingForm() {
                 name="images" 
                 render={({ field }) => ( 
                   <FormItem>
-                    <FormLabel className="flex items-center"><Upload className="h-4 w-4 mr-1"/>Upload Images</FormLabel>
+                    <FormLabel className="flex items-center"><Upload className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`}/>{t.uploadImagesLabel}</FormLabel>
                     <FormControl>
                       <Input 
                         type="file" 
@@ -356,7 +446,7 @@ export function ListingForm() {
                         className="file:text-sm file:font-medium"
                       />
                     </FormControl>
-                    <FormDescription>You can upload multiple images (upload to server not yet implemented).</FormDescription>
+                    <FormDescription>{t.uploadImagesDesc}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -372,11 +462,11 @@ export function ListingForm() {
               <Button type="submit" className="w-full sm:w-auto" size="lg" disabled={isSubmitting || isLoadingCategories}>
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
+                    <Loader2 className={`h-4 w-4 animate-spin ${language === 'ar' ? 'ms-2' : 'me-2'}`} />
+                    {t.submittingButton}
                   </>
                 ) : (
-                  'Submit for Review'
+                  t.submitButton
                 )}
               </Button>
             </form>
@@ -389,4 +479,3 @@ export function ListingForm() {
     </div>
   );
 }
-    

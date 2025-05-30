@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, type ChangeEvent } from 'react';
@@ -8,9 +9,55 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle, AlertTriangle, Upload, Loader2 } from 'lucide-react';
 import type { ImageAnalysisResult } from '@/lib/types';
-// import { analyzeListingImage } from '@/ai/flows/analyze-listing-image'; // Uncomment when ready to implement
+import { useLanguage } from '@/hooks/useLanguage';
+// import { analyzeListingImage } from '@/ai/flows/analyze-listing-image';
+
+const translations = {
+  en: {
+    title: "AI Image Analysis",
+    description: "Upload an image to verify product authenticity and flag potential issues.",
+    uploadLabel: "Upload Image",
+    selectImageError: "Please select an image first.",
+    analyzeButton: "Analyze Image",
+    analyzingButton: "Analyzing...",
+    analysisResultsTitle: "Analysis Results:",
+    authenticityVerifiedTitle: "Authenticity Verified",
+    authenticityVerifiedDesc: "The image appears to be authentic.",
+    potentialAuthenticityIssuesTitle: "Potential Authenticity Issues",
+    potentialAuthenticityIssuesDesc: "The image may have authenticity concerns.",
+    potentialIssuesFoundTitle: "Potential Issues Found:",
+    errorFailedToAnalyze: "Failed to analyze image. Please try again.",
+    errorFailedToRead: "Failed to read image file.",
+    errorTitle: "Error",
+    // Mock issues for translation example
+    mockIssueCopyright: "Potential copyright concern.",
+    mockIssueBlurry: "Image seems blurry.",
+  },
+  ar: {
+    title: "تحليل الصور بالذكاء الاصطناعي",
+    description: "قم بتحميل صورة للتحقق من أصالة المنتج والإبلاغ عن المشكلات المحتملة.",
+    uploadLabel: "تحميل صورة",
+    selectImageError: "الرجاء تحديد صورة أولاً.",
+    analyzeButton: "تحليل الصورة",
+    analyzingButton: "جاري التحليل...",
+    analysisResultsTitle: "نتائج التحليل:",
+    authenticityVerifiedTitle: "تم التحقق من الأصالة",
+    authenticityVerifiedDesc: "الصورة تبدو أصلية.",
+    potentialAuthenticityIssuesTitle: "مشاكل محتملة في الأصالة",
+    potentialAuthenticityIssuesDesc: "قد تحتوي الصورة على مخاوف تتعلق بالأصالة.",
+    potentialIssuesFoundTitle: "المشكلات المحتملة التي تم العثور عليها:",
+    errorFailedToAnalyze: "فشل تحليل الصورة. يرجى المحاولة مرة أخرى.",
+    errorFailedToRead: "فشل في قراءة ملف الصورة.",
+    errorTitle: "خطأ",
+    mockIssueCopyright: "قلق محتمل بشأن حقوق النشر.",
+    mockIssueBlurry: "الصورة تبدو ضبابية.",
+  }
+};
 
 export function ImageAnalysisTool() {
+  const { language } = useLanguage();
+  const t = translations[language];
+
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<ImageAnalysisResult | null>(null);
@@ -22,14 +69,14 @@ export function ImageAnalysisTool() {
       const file = event.target.files[0];
       setSelectedImage(file);
       setImagePreview(URL.createObjectURL(file));
-      setAnalysisResult(null); // Reset previous results
+      setAnalysisResult(null);
       setError(null);
     }
   };
 
   const handleAnalyzeImage = async () => {
     if (!selectedImage) {
-      setError('Please select an image first.');
+      setError(t.selectImageError);
       return;
     }
 
@@ -37,50 +84,47 @@ export function ImageAnalysisTool() {
     setError(null);
     setAnalysisResult(null);
 
-    // Simulate API call / AI flow
+    await new Promise(resolve => setTimeout(resolve, 1500)); 
+    const mockResult: ImageAnalysisResult = {
+      isAuthentic: Math.random() > 0.3,
+      issues: Math.random() > 0.5 ? [t.mockIssueCopyright, t.mockIssueBlurry] : [],
+    };
+    setAnalysisResult(mockResult);
+    // TODO: Integrate actual AI call:
     // const reader = new FileReader();
     // reader.readAsDataURL(selectedImage);
     // reader.onloadend = async () => {
     //   try {
     //     const photoDataUri = reader.result as string;
-    //     // const result = await analyzeListingImage({ photoDataUri }); // Actual AI call
+    //     // const result = await analyzeListingImage({ photoDataUri });
     //     // setAnalysisResult(result);
-        
-    //     // Placeholder result:
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate delay
-    const mockResult: ImageAnalysisResult = {
-      isAuthentic: Math.random() > 0.3, // Simulate authenticity
-      issues: Math.random() > 0.5 ? ['Potential copyright concern.', 'Image seems blurry.'] : [],
-    };
-    setAnalysisResult(mockResult);
-
     //   } catch (err) {
-    //     setError('Failed to analyze image. Please try again.');
+    //     setError(t.errorFailedToAnalyze);
     //     console.error(err);
     //   } finally {
     //     setIsLoading(false);
     //   }
     // };
     // reader.onerror = () => {
-    //   setError('Failed to read image file.');
+    //   setError(t.errorFailedToRead);
     //   setIsLoading(false);
     // };
-    setIsLoading(false); // Remove this when actual AI call is implemented
+    setIsLoading(false);
   };
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center">
-          <Upload className="h-5 w-5 mr-2" /> AI Image Analysis
+          <Upload className={`h-5 w-5 ${language === 'ar' ? 'ms-2' : 'me-2'}`} /> {t.title}
         </CardTitle>
         <CardDescription>
-          Upload an image to verify product authenticity and flag potential issues.
+          {t.description}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div>
-          <Label htmlFor="listing-image-analysis" className="block mb-2 text-sm font-medium">Upload Image</Label>
+          <Label htmlFor="listing-image-analysis" className="block mb-2 text-sm font-medium">{t.uploadLabel}</Label>
           <Input
             id="listing-image-analysis"
             type="file"
@@ -99,7 +143,7 @@ export function ImageAnalysisTool() {
         {error && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
+            <AlertTitle>{t.errorTitle}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -107,39 +151,39 @@ export function ImageAnalysisTool() {
         <Button onClick={handleAnalyzeImage} disabled={!selectedImage || isLoading} className="w-full">
           {isLoading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Analyzing...
+              <Loader2 className={`h-4 w-4 animate-spin ${language === 'ar' ? 'ms-2' : 'me-2'}`} />
+              {t.analyzingButton}
             </>
           ) : (
-            'Analyze Image'
+            t.analyzeButton
           )}
         </Button>
 
         {analysisResult && (
           <div className="mt-6 space-y-4">
-            <h4 className="font-semibold text-lg">Analysis Results:</h4>
+            <h4 className="font-semibold text-lg">{t.analysisResultsTitle}</h4>
             {analysisResult.isAuthentic ? (
               <Alert variant="default" className="bg-green-100 border-green-300 dark:bg-green-900 dark:border-green-700">
-                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <AlertTitle className="text-green-700 dark:text-green-300">Authenticity Verified</AlertTitle>
+                <CheckCircle className={`h-4 w-4 text-green-600 dark:text-green-400 ${language === 'ar' ? 'ms-2' : 'me-2'}`} />
+                <AlertTitle className="text-green-700 dark:text-green-300">{t.authenticityVerifiedTitle}</AlertTitle>
                 <AlertDescription className="text-green-600 dark:text-green-400">
-                  The image appears to be authentic.
+                  {t.authenticityVerifiedDesc}
                 </AlertDescription>
               </Alert>
             ) : (
               <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Potential Authenticity Issues</AlertTitle>
+                <AlertTriangle className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} />
+                <AlertTitle>{t.potentialAuthenticityIssuesTitle}</AlertTitle>
                 <AlertDescription>
-                  The image may have authenticity concerns.
+                  {t.potentialAuthenticityIssuesDesc}
                 </AlertDescription>
               </Alert>
             )}
 
             {analysisResult.issues.length > 0 && (
               <div>
-                <h5 className="font-medium mb-1">Potential Issues Found:</h5>
-                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                <h5 className="font-medium mb-1">{t.potentialIssuesFoundTitle}</h5>
+                <ul className={`list-disc ${language === 'ar' ? 'list-inside-rtl ps-0 pe-4' : 'list-inside'} text-sm text-muted-foreground space-y-1`}>
                   {analysisResult.issues.map((issue, index) => (
                     <li key={index}>{issue}</li>
                   ))}

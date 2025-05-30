@@ -1,17 +1,34 @@
+
+'use client'; // Added for useLanguage hook
+
 import { ListingCard } from '@/components/ListingCard';
 import { placeholderListings } from '@/lib/placeholder-data';
 import type { Listing } from '@/lib/types';
 import { Lightbulb } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage'; // Added for translation
+
+const translations = {
+  en: {
+    title: "You Might Also Like",
+    description: "AI-powered recommendations based on your interests.",
+  },
+  ar: {
+    title: "قد يعجبك ايضا",
+    description: "توصيات مدعومة بالذكاء الاصطناعي بناءً على اهتماماتك.",
+  }
+};
 
 interface RecommendationsSectionProps {
   currentListingId: string;
 }
 
 export function RecommendationsSection({ currentListingId }: RecommendationsSectionProps) {
-  // Simulate fetching recommendations. In a real app, this would call getListingRecommendations AI flow.
+  const { language } = useLanguage();
+  const t = translations[language];
+
   const recommendedListings: Listing[] = placeholderListings
-    .filter(listing => listing.id !== currentListingId)
-    .slice(0, 4); // Show up to 4 recommendations
+    .filter(listing => listing.id !== currentListingId && listing.status === 'approved') // Ensure only approved
+    .slice(0, 4); 
 
   if (recommendedListings.length === 0) {
     return null;
@@ -20,10 +37,10 @@ export function RecommendationsSection({ currentListingId }: RecommendationsSect
   return (
     <div className="mt-12">
       <h2 className="text-2xl font-semibold mb-6 flex items-center">
-        <Lightbulb className="h-6 w-6 mr-2 text-primary" />
-        You Might Also Like
+        <Lightbulb className={`h-6 w-6 ${language === 'ar' ? 'ms-2' : 'me-2'} text-primary`} />
+        {t.title}
       </h2>
-      <p className="text-sm text-muted-foreground mb-4">AI-powered recommendations based on your interests.</p>
+      <p className="text-sm text-muted-foreground mb-4">{t.description}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {recommendedListings.map((listing) => (
           <ListingCard key={listing.id} listing={listing} />

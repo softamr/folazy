@@ -8,35 +8,104 @@ import { useEffect, useState } from 'react';
 import { collection, getDocs, limit, query as firestoreQuery } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
-import * as Icons from 'lucide-react'; // Import all icons
-import { HelpCircle } from 'lucide-react'; // Fallback icon
+import * as Icons from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
+import { useLanguage } from '@/hooks/useLanguage';
+
+const translations = {
+  en: {
+    popularCategoriesTitle: "Popular Categories",
+    noCategoriesAvailable: "No categories available at the moment.",
+    allIn: (categoryName: string) => `All in ${categoryName} ›`,
+  },
+  ar: {
+    popularCategoriesTitle: "الفئات الشائعة",
+    noCategoriesAvailable: "لا توجد فئات متاحة في الوقت الحالي.",
+    allIn: (categoryName: string) => `الكل في ${categoryName} ‹`,
+  }
+};
 
 export function PopularCategories() {
+  const { language } = useLanguage();
+  const t = translations[language];
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // This function attempts to get a translated category name.
+  // For a full solution, category names should ideally be stored in the DB with translations.
+  // This is a simplified version similar to what's in Header.tsx
+  const getCategoryName = (category: Category): string => {
+    if (language === 'ar') {
+        const arNames: Record<string, string> = {
+            'electronics': 'إلكترونيات',
+            'vehicles': 'مركبات',
+            'properties': 'عقارات',
+            'jobs': 'وظائف',
+            'furniture & home decor': 'أثاث وديكور',
+            'fashion & beauty': 'أزياء وجمال',
+            'pets': 'حيوانات أليفة',
+            'kids & babies': 'أطفال ورضع',
+            'books, sports & hobbies': 'كتب، رياضة وهوايات',
+            'services': 'خدمات',
+            'business & industrial': 'أعمال وصناعة',
+            'mobile phones': 'هواتف محمولة',
+            'tablets': 'أجهزة لوحية',
+            'cars': 'سيارات',
+            'motorcycles': 'دراجات نارية',
+            'apartments for rent': 'شقق للإيجار',
+            'villas for sale': 'فلل للبيع',
+            'phones & tablets': 'الهواتف والأجهزة اللوحية',
+        };
+        const categoryIdLower = category.id.toLowerCase();
+        const categoryNameLower = category.name.toLowerCase();
+
+        if (arNames[categoryIdLower]) return arNames[categoryIdLower];
+        if (arNames[categoryNameLower]) return arNames[categoryNameLower];
+        return category.name; 
+    }
+    return category.name;
+  };
+   const getSubCategoryName = (subcategory: Category): string => {
+    if (language === 'ar') {
+        const arNames: Record<string, string> = {
+            'mobile phones': 'هواتف محمولة',
+            'tablets': 'أجهزة لوحية',
+            'cars': 'سيارات',
+            'motorcycles': 'دراجات نارية',
+            'apartments for rent': 'شقق للإيجار',
+            'villas for sale': 'فلل للبيع',
+            'laptops': 'كمبيوتر محمول', // Example additional subcategory
+            'cameras': 'كاميرات',     // Example additional subcategory
+        };
+        const subcategoryIdLower = subcategory.id.toLowerCase();
+        const subcategoryNameLower = subcategory.name.toLowerCase();
+
+        if (arNames[subcategoryIdLower]) return arNames[subcategoryIdLower];
+        if (arNames[subcategoryNameLower]) return arNames[subcategoryNameLower];
+        return subcategory.name;
+    }
+    return subcategory.name;
+  };
+
 
   useEffect(() => {
     const fetchCategories = async () => {
       setIsLoading(true);
       try {
         const categoriesRef = collection(db, 'categories');
-        // Fetch, for example, the first 6 categories ordered by name, or implement a 'isPopular' flag later
-        const q = firestoreQuery(categoriesRef, limit(6)); // Example: limit to 6 popular categories
+        const q = firestoreQuery(categoriesRef, limit(6));
         const querySnapshot = await getDocs(q);
         const fetchedCategories: Category[] = [];
         querySnapshot.forEach((doc) => {
           fetchedCategories.push({ id: doc.id, ...doc.data() } as Category);
         });
-        // Sort by name client-side if not ordering by a specific 'popularity' field in Firestore
         setCategories(fetchedCategories.sort((a, b) => a.name.localeCompare(b.name)));
       } catch (error) {
         console.error("Error fetching popular categories:", error);
-        // Optionally set an error state here
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchCategories();
   }, []);
 
@@ -44,7 +113,7 @@ export function PopularCategories() {
     return (
       <section className="py-8">
         <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-semibold mb-8 text-foreground">Popular Categories</h2>
+          <h2 className="text-2xl font-semibold mb-8 text-foreground">{t.popularCategoriesTitle}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
             {Array.from({ length: 6 }).map((_, index) => (
               <Card key={index} className="h-full flex flex-col">
@@ -71,8 +140,8 @@ export function PopularCategories() {
       return (
         <section className="py-8">
             <div className="container mx-auto px-4">
-                 <h2 className="text-2xl font-semibold mb-8 text-foreground">Popular Categories</h2>
-                 <p className="text-muted-foreground">No categories available at the moment.</p>
+                 <h2 className="text-2xl font-semibold mb-8 text-foreground">{t.popularCategoriesTitle}</h2>
+                 <p className="text-muted-foreground">{t.noCategoriesAvailable}</p>
             </div>
         </section>
       );
@@ -82,12 +151,13 @@ export function PopularCategories() {
     <section className="py-8">
       <div className="container mx-auto px-4">
         <h2 className="text-2xl font-semibold mb-8 text-foreground">
-          Popular Categories
+          {t.popularCategoriesTitle}
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
           {categories.map((category) => {
             const IconComponent = category.iconName ? (Icons as any)[category.iconName] || HelpCircle : HelpCircle;
             const categoryHref = category.href || `/s/${category.id}`;
+            const translatedCategoryName = getCategoryName(category);
             return (
               <div key={category.id} className="group">
                 <Card className="h-full flex flex-col hover:shadow-md transition-shadow bg-card">
@@ -96,7 +166,7 @@ export function PopularCategories() {
                     <CardTitle className="text-base font-medium text-center text-foreground group-hover:text-primary">
                       <Link href={categoryHref} className="focus:outline-none focus:ring-2 focus:ring-ring rounded">
                         <span className="absolute inset-0" aria-hidden="true" />
-                        {category.name}
+                        {translatedCategoryName}
                       </Link>
                     </CardTitle>
                   </CardHeader>
@@ -107,7 +177,7 @@ export function PopularCategories() {
                           href={sub.href || `/s/${category.id}/${sub.id}`}
                           className="hover:text-primary hover:underline relative z-10"
                         >
-                          {sub.name}
+                          {getSubCategoryName(sub)}
                         </Link>
                       </div>
                     ))}
@@ -115,7 +185,7 @@ export function PopularCategories() {
                    {(category.subcategories && category.subcategories.length > 0) && (
                     <div className="px-3 pb-3 mt-auto text-center">
                         <Link href={categoryHref} className="text-xs font-medium text-primary hover:underline relative z-10">
-                          All in {category.name} &rsaquo;
+                          {t.allIn(translatedCategoryName)}
                         </Link>
                     </div>
                    )}

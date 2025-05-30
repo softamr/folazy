@@ -10,12 +10,61 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { placeholderConversations, placeholderUsers, placeholderMessagesForConversation, placeholderListings } from '@/lib/placeholder-data';
 import type { Conversation, Message as MessageType, User as UserType, Listing } from '@/lib/types';
-import { Send, ArrowLeft, Paperclip, Smile, MessageSquare as MessageSquareIcon } from 'lucide-react'; // Renamed MessageSquare to avoid conflict
+import { Send, ArrowLeft, Paperclip, Smile, MessageSquare as MessageSquareIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '@/hooks/useLanguage';
+
+const translations = {
+  en: {
+    loadingMessages: "Loading messages...",
+    pleaseLogin: "Please log in to view your messages.",
+    loginRequiredDesc: "You need to be signed in to access your conversations.",
+    loginButton: "Login",
+    loadingConversations: "Loading conversations...",
+    yourChatsTitle: "Your Chats",
+    selectConversationDesc: "Select a conversation to view messages.",
+    noConversationsYet: "No conversations yet.",
+    reListingPrefix: "Re:",
+    generalInquiry: "General Inquiry",
+    youPrefix: "You: ",
+    unreadSuffix: "new",
+    selectConversationPrompt: "Select a conversation",
+    startNewConversationPrompt: "Or start a new one by contacting a seller on a listing page.",
+    browseListingsButton: "Browse Listings",
+    regardingLabel: "Regarding:",
+    typeYourMessagePlaceholder: "Type your message...",
+    sendSr: "Send",
+    unknownUser: "Unknown User",
+  },
+  ar: {
+    loadingMessages: "جار تحميل الرسائل...",
+    pleaseLogin: "الرجاء تسجيل الدخول لعرض رسائلك.",
+    loginRequiredDesc: "يجب أن تكون مسجلاً الدخول للوصول إلى محادثاتك.",
+    loginButton: "تسجيل الدخول",
+    loadingConversations: "جار تحميل المحادثات...",
+    yourChatsTitle: "محادثاتك",
+    selectConversationDesc: "اختر محادثة لعرض الرسائل.",
+    noConversationsYet: "لا توجد محادثات بعد.",
+    reListingPrefix: "بخصوص:",
+    generalInquiry: "استفسار عام",
+    youPrefix: "أنت: ",
+    unreadSuffix: "جديدة",
+    selectConversationPrompt: "اختر محادثة",
+    startNewConversationPrompt: "أو ابدأ محادثة جديدة عن طريق الاتصال بالبائع في صفحة الإعلان.",
+    browseListingsButton: "تصفح الإعلانات",
+    regardingLabel: "بخصوص:",
+    typeYourMessagePlaceholder: "اكتب رسالتك...",
+    sendSr: "إرسال",
+    unknownUser: "مستخدم غير معروف",
+  }
+};
 
 export default function MessagesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { language } = useLanguage();
+  const t = translations[language];
+
   const conversationIdParam = searchParams.get('conversationId');
   const listingIdParam = searchParams.get('listingId');
   const recipientIdParam = searchParams.get('recipientId');
@@ -28,21 +77,18 @@ export default function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    // Simulate fetching current user
-    const user = placeholderUsers.find(u => u.id === 'user1'); // Example: user1 is the logged-in user
+    const user = placeholderUsers.find(u => u.id === 'user1'); 
     setCurrentUser(user || null);
   }, []);
 
-  // Effect to load or select conversation
   useEffect(() => {
-    if (!currentUser && !isLoading && placeholderUsers.length === 0) { // Only consider loading false if not initial user load
-        setIsLoading(false); // Ensure loading is false if no user
+    if (!currentUser && !isLoading && placeholderUsers.length === 0) {
+        setIsLoading(false);
         return;
     }
-    if (!currentUser && placeholderUsers.length > 0 && !isLoading) { // If still loading current user
+    if (!currentUser && placeholderUsers.length > 0 && !isLoading) {
         return;
     }
-
 
     setIsLoading(true);
     let activeConversation: Conversation | undefined;
@@ -50,14 +96,12 @@ export default function MessagesPage() {
     if (conversationIdParam) {
       activeConversation = conversations.find(c => c.id === conversationIdParam);
     } else if (listingIdParam && recipientIdParam && currentUser) {
-      // Try to find an existing conversation for this listing and recipient
       activeConversation = conversations.find(c => 
         c.listingId === listingIdParam && 
         c.participants.some(p => p.id === recipientIdParam) &&
         c.participants.some(p => p.id === currentUser.id)
       );
       
-      // If no existing conversation, create a new one (simulated)
       if (!activeConversation) {
         const recipient = placeholderUsers.find(u => u.id === recipientIdParam);
         const listing = placeholderListings.find(l => l.id === listingIdParam);
@@ -73,14 +117,13 @@ export default function MessagesPage() {
                 conversationId: newConvoId,
                 senderId: currentUser.id, 
                 receiverId: recipient.id, 
-                text: `Starting chat about ${listing.title}...`, 
+                text: `${t.reListingPrefix} ${listing.title}...`, 
                 timestamp: new Date().toISOString(),
                 isRead: false,
             },
              unreadCount: 0,
            };
            setConversations(prev => [...prev, activeConversation!]);
-           // Ensure placeholderMessagesForConversation is mutable if it comes from an immutable source
            const updatedMessagesForConvo = { ...placeholderMessagesForConversation };
            updatedMessagesForConvo[newConvoId] = [activeConversation!.lastMessage]; 
         }
@@ -91,12 +134,11 @@ export default function MessagesPage() {
       setSelectedConversation(activeConversation);
       setMessages(placeholderMessagesForConversation[activeConversation.id] || []);
     } else if (conversations.length > 0 && !conversationIdParam && !listingIdParam) {
-      // Default to first conversation if no params and conversations exist
       setSelectedConversation(conversations[0]);
       setMessages(placeholderMessagesForConversation[conversations[0].id] || []);
     }
     setIsLoading(false);
-  }, [conversationIdParam, listingIdParam, recipientIdParam, currentUser, conversations, isLoading]); // Added isLoading to dependency
+  }, [conversationIdParam, listingIdParam, recipientIdParam, currentUser, conversations, isLoading, t.reListingPrefix]);
 
   const handleSendMessage = () => {
     if (!newMessage.trim() || !selectedConversation || !currentUser) return;
@@ -118,10 +160,8 @@ export default function MessagesPage() {
     setSelectedConversation(updatedConvo);
     setConversations(prevConvos => prevConvos.map(c => c.id === updatedConvo.id ? updatedConvo : c));
     
-    // Ensure placeholderMessagesForConversation is mutable
     const updatedMessagesForConvo = { ...placeholderMessagesForConversation };
     updatedMessagesForConvo[selectedConversation.id] = [...(updatedMessagesForConvo[selectedConversation.id] || []), msg];
-
 
     setNewMessage('');
   };
@@ -131,41 +171,38 @@ export default function MessagesPage() {
     return convo.participants.find(p => p.id !== currentUser.id);
   };
 
-  // Initial loading state for current user
-  if (isLoading && !currentUser && placeholderUsers.length === 0 ) { // Check if placeholderUsers is empty for initial load
-     return <div className="flex justify-center items-center h-[calc(100vh-200px)]">Loading messages...</div>;
+  if (isLoading && !currentUser && placeholderUsers.length === 0 ) {
+     return <div className="flex justify-center items-center h-[calc(100vh-200px)]">{t.loadingMessages}</div>;
   }
   
   if (!currentUser && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center border rounded-lg shadow-lg">
         <MessageSquareIcon className="h-16 w-16 mb-4 text-muted-foreground" />
-        <p className="text-xl font-medium">Please log in to view your messages.</p>
-        <p className="text-muted-foreground mb-6">You need to be signed in to access your conversations.</p>
+        <p className="text-xl font-medium">{t.pleaseLogin}</p>
+        <p className="text-muted-foreground mb-6">{t.loginRequiredDesc}</p>
         <Button asChild className="mt-4">
-          <Link href="/auth/login">Login</Link>
+          <Link href="/auth/login">{t.loginButton}</Link>
         </Button>
       </div>
     );
   }
   
   if (isLoading) {
-     return <div className="flex justify-center items-center h-[calc(100vh-200px)]">Loading conversations...</div>;
+     return <div className="flex justify-center items-center h-[calc(100vh-200px)]">{t.loadingConversations}</div>;
   }
-
 
   return (
     <div className="flex flex-col md:flex-row h-[calc(100vh-10rem)] border rounded-lg shadow-lg overflow-hidden">
-      {/* Sidebar for conversations list */}
-      <Card className="w-full md:w-1/3 border-r rounded-none md:rounded-l-lg md:rounded-r-none">
+      <Card className={`w-full md:w-1/3 ${language === 'ar' ? 'border-l' : 'border-r'} rounded-none ${language === 'ar' ? 'md:rounded-r-lg md:rounded-l-none' : 'md:rounded-l-lg md:rounded-r-none'}`}>
         <CardHeader>
-          <CardTitle>Your Chats</CardTitle>
-          <CardDescription>Select a conversation to view messages.</CardDescription>
+          <CardTitle>{t.yourChatsTitle}</CardTitle>
+          <CardDescription>{t.selectConversationDesc}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <ScrollArea className="h-[calc(100vh-18rem)]">
             {conversations.length === 0 && (
-              <p className="p-4 text-muted-foreground text-center">No conversations yet.</p>
+              <p className="p-4 text-muted-foreground text-center">{t.noConversationsYet}</p>
             )}
             {conversations.map((convo) => (
               <Button
@@ -178,21 +215,21 @@ export default function MessagesPage() {
                   setMessages(placeholderMessagesForConversation[convo.id] || []);
                 }}
               >
-                <Avatar className="h-10 w-10 mr-3">
+                <Avatar className={`h-10 w-10 ${language === 'ar' ? 'ms-3' : 'me-3'}`}>
                   <AvatarImage src={getOtherParticipant(convo)?.avatarUrl || `https://placehold.co/100x100.png`} alt={getOtherParticipant(convo)?.name} data-ai-hint="avatar person" />
                   <AvatarFallback>{getOtherParticipant(convo)?.name.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                 </Avatar>
-                <div className="flex-grow text-left">
-                  <p className="font-semibold truncate">{getOtherParticipant(convo)?.name || 'Unknown User'}</p>
+                <div className={`flex-grow ${language === 'ar' ? 'text-right' : 'text-left'}`}>
+                  <p className="font-semibold truncate">{getOtherParticipant(convo)?.name || t.unknownUser}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {convo.listingTitle ? `Re: ${convo.listingTitle}` : 'General Inquiry'}
+                    {convo.listingTitle ? `${t.reListingPrefix} ${convo.listingTitle}` : t.generalInquiry}
                   </p>
                   <p className={`text-xs truncate ${convo.unreadCount > 0 && convo.lastMessage.senderId !== currentUser?.id ? 'font-bold text-primary' : 'text-muted-foreground'}`}>
-                    {convo.lastMessage.senderId === currentUser?.id ? "You: " : ""}{convo.lastMessage.text}
+                    {convo.lastMessage.senderId === currentUser?.id ? t.youPrefix : ""}{convo.lastMessage.text}
                   </p>
                 </div>
                 {convo.unreadCount > 0 && convo.lastMessage.senderId !== currentUser?.id && (
-                  <span className="ml-2 text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">
+                  <span className={`${language === 'ar' ? 'me-2' : 'ms-2'} text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5`}>
                     {convo.unreadCount}
                   </span>
                 )}
@@ -202,15 +239,14 @@ export default function MessagesPage() {
         </CardContent>
       </Card>
 
-      {/* Main chat area */}
-      <div className="flex-grow flex flex-col bg-background md:rounded-r-lg">
+      <div className={`flex-grow flex flex-col bg-background ${language === 'ar' ? 'md:rounded-l-lg' : 'md:rounded-r-lg'}`}>
         {!selectedConversation ? (
           <div className="flex-grow flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
             <MessageSquareIcon className="h-16 w-16 mb-4" />
-            <p className="text-xl font-medium">Select a conversation</p>
-            <p>Or start a new one by contacting a seller on a listing page.</p>
+            <p className="text-xl font-medium">{t.selectConversationPrompt}</p>
+            <p>{t.startNewConversationPrompt}</p>
              <Button asChild className="mt-4" variant="outline">
-                <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" /> Browse Listings</Link>
+                <Link href="/"><ArrowLeft className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} /> {t.browseListingsButton}</Link>
             </Button>
           </div>
         ) : (
@@ -220,7 +256,7 @@ export default function MessagesPage() {
                 <CardTitle>{getOtherParticipant(selectedConversation)?.name || 'Chat'}</CardTitle>
                 {selectedConversation.listingTitle && (
                   <CardDescription className="truncate">
-                    Regarding: <Link href={`/listings/${selectedConversation.listingId}`} className="text-primary hover:underline">{selectedConversation.listingTitle}</Link>
+                    {t.regardingLabel} <Link href={`/listings/${selectedConversation.listingId}`} className="text-primary hover:underline">{selectedConversation.listingTitle}</Link>
                   </CardDescription>
                 )}
               </div>
@@ -232,7 +268,7 @@ export default function MessagesPage() {
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex ${msg.senderId === currentUser?.id ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${msg.senderId === currentUser?.id ? (language === 'ar' ? 'justify-start' : 'justify-end') : (language === 'ar' ? 'justify-end' : 'justify-start')}`}
                 >
                   <div
                     className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg shadow ${
@@ -242,7 +278,7 @@ export default function MessagesPage() {
                     }`}
                   >
                     <p className="text-sm">{msg.text}</p>
-                    <p className={`text-xs mt-1 ${msg.senderId === currentUser?.id ? 'text-primary-foreground/70 text-right' : 'text-muted-foreground/70 text-left'}`}>
+                    <p className={`text-xs mt-1 ${msg.senderId === currentUser?.id ? (language === 'ar' ? 'text-primary-foreground/70 text-left' : 'text-primary-foreground/70 text-right') : (language === 'ar' ? 'text-muted-foreground/70 text-left' : 'text-muted-foreground/70 text-right')}`}>
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
@@ -255,15 +291,16 @@ export default function MessagesPage() {
                 <Button variant="ghost" size="icon"><Smile className="h-5 w-5 text-muted-foreground"/></Button>
                 <Input
                   type="text"
-                  placeholder="Type your message..."
+                  placeholder={t.typeYourMessagePlaceholder}
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                   className="flex-grow"
+                  dir={language === 'ar' ? 'rtl' : 'ltr'}
                 />
                 <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
                   <Send className="h-5 w-5" />
-                  <span className="sr-only">Send</span>
+                  <span className="sr-only">{t.sendSr}</span>
                 </Button>
               </div>
             </CardFooter>

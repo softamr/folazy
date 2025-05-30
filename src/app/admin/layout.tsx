@@ -1,3 +1,4 @@
+
 // src/app/admin/layout.tsx
 'use client';
 
@@ -14,10 +15,37 @@ import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/useLanguage';
+
+const translations = {
+  en: {
+    verifyingAccess: "Verifying admin access...",
+    accessDeniedTitle: "Access Denied",
+    accessDeniedDescription: "You do not have permission to access this area. Please log in as an administrator.",
+    goToHomepageButton: "Go to Homepage",
+    loginButton: "Login",
+    adminAccessErrorTitle: "Admin Access Error",
+    couldNotVerifyStatus: "Could not verify admin status.",
+    failedToVerifyStatus: "Failed to verify admin status.",
+  },
+  ar: {
+    verifyingAccess: "جار التحقق من صلاحية المسؤول...",
+    accessDeniedTitle: "تم رفض الوصول",
+    accessDeniedDescription: "ليس لديك إذن للوصول إلى هذه المنطقة. يرجى تسجيل الدخول كمسؤول.",
+    goToHomepageButton: "الذهاب إلى الصفحة الرئيسية",
+    loginButton: "تسجيل الدخول",
+    adminAccessErrorTitle: "خطأ في صلاحية المسؤول",
+    couldNotVerifyStatus: "تعذر التحقق من حالة المسؤول.",
+    failedToVerifyStatus: "فشل التحقق من حالة المسؤول.",
+  }
+};
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = translations[language];
+
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -41,33 +69,33 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             }
           } else {
             console.error("No user document found in Firestore for admin check:", user.uid);
-            toast({ title: "Admin Access Error", description: "Could not verify admin status.", variant: "destructive" });
+            toast({ title: t.adminAccessErrorTitle, description: t.couldNotVerifyStatus, variant: "destructive" });
             setCurrentUser(null);
             setAccessDenied(true);
           }
         } catch (error) {
           console.error("Error fetching user document for admin check:", error);
-          toast({ title: "Admin Access Error", description: "Failed to verify admin status.", variant: "destructive" });
+          toast({ title: t.adminAccessErrorTitle, description: t.failedToVerifyStatus, variant: "destructive" });
           setCurrentUser(null);
           setAccessDenied(true);
         }
       } else {
         setFirebaseAuthUser(null);
         setCurrentUser(null);
-        setAccessDenied(true); // No user logged in, so deny access
+        setAccessDenied(true); 
       }
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [toast]);
+  }, [toast, t]);
 
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-muted/50 p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Verifying admin access...</p>
+        <p className="text-muted-foreground">{t.verifyingAccess}</p>
       </div>
     );
   }
@@ -78,20 +106,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <Card className="w-full max-w-md text-center shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center justify-center text-2xl text-destructive">
-              <AlertTriangle className="mr-2 h-8 w-8" />
-              Access Denied
+              <AlertTriangle className="me-2 h-8 w-8" />
+              {t.accessDeniedTitle}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground mb-6">
-              You do not have permission to access this area. Please log in as an administrator.
+              {t.accessDeniedDescription}
             </p>
             <Button asChild>
-              <Link href="/">Go to Homepage</Link>
+              <Link href="/">{t.goToHomepageButton}</Link>
             </Button>
              {!firebaseAuthUser && (
                 <Button asChild variant="link" className="mt-2">
-                  <Link href="/auth/login">Login</Link>
+                  <Link href="/auth/login">{t.loginButton}</Link>
                 </Button>
             )}
           </CardContent>
