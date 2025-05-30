@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation'; // Import useSearchParams
 import { ListingCard } from '@/components/ListingCard';
 import { FilterBar } from '@/components/FilterBar';
 import { placeholderListings, placeholderCategories_DEPRECATED } from '@/lib/placeholder-data';
@@ -9,12 +10,15 @@ import type { Listing, Category } from '@/lib/types';
 import { ChevronRight, Home, Search as SearchIcon, PackageOpen } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { useLanguage, type Language } from '@/hooks/useLanguage'; // Added useLanguage
-import { Skeleton } from '@/components/ui/skeleton'; // Added Skeleton
+import { useLanguage, type Language } from '@/hooks/useLanguage';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Simulate fetching listings based on slug and searchParams
+// Simulate fetching listings based on slug and filters
 // This function will now be called client-side
-async function fetchFilteredListingsClient(slug: string[], searchParams: any): Promise<{ listings: Listing[], category?: Category, subcategory?: Category }> {
+async function fetchFilteredListingsClient(
+  slug: string[],
+  filters: { query?: string; minPrice?: string; maxPrice?: string }
+): Promise<{ listings: Listing[], category?: Category, subcategory?: Category }> {
   await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
   
   let currentListings = placeholderListings.filter(l => l.status === 'approved');
@@ -37,17 +41,18 @@ async function fetchFilteredListingsClient(slug: string[], searchParams: any): P
     }
   }
   
-  if (searchParams.query) {
+  if (filters.query) {
+    const lowerQuery = filters.query.toLowerCase();
     currentListings = currentListings.filter(l => 
-      l.title.toLowerCase().includes(String(searchParams.query).toLowerCase()) ||
-      l.description.toLowerCase().includes(String(searchParams.query).toLowerCase())
+      l.title.toLowerCase().includes(lowerQuery) ||
+      l.description.toLowerCase().includes(lowerQuery)
     );
   }
-  if (searchParams.minPrice) {
-    currentListings = currentListings.filter(l => l.price >= Number(searchParams.minPrice));
+  if (filters.minPrice) {
+    currentListings = currentListings.filter(l => l.price >= Number(filters.minPrice));
   }
-  if (searchParams.maxPrice) {
-    currentListings = currentListings.filter(l => l.price <= Number(searchParams.maxPrice));
+  if (filters.maxPrice) {
+    currentListings = currentListings.filter(l => l.price <= Number(filters.maxPrice));
   }
   
   return { listings: currentListings.slice(0, 12), category, subcategory }; // Return a slice for pagination example
@@ -78,13 +83,15 @@ const translations = {
 
 interface SearchPageProps {
   params: { slug: string[] };
-  searchParams: { [key: string]: string | string[] | undefined };
+  // searchParams prop removed
 }
 
-export default function SearchPage({ params, searchParams }: SearchPageProps) {
+export default function SearchPage({ params }: SearchPageProps) {
   const { slug } = params;
   const { language } = useLanguage();
   const t = translations[language];
+
+  const clientSearchParams = useSearchParams(); // Use hook to get search params
 
   const [data, setData] = useState<{ listings: Listing[], category?: Category, subcategory?: Category }>({ listings: [] });
   const [isLoading, setIsLoading] = useState(true);
@@ -92,15 +99,21 @@ export default function SearchPage({ params, searchParams }: SearchPageProps) {
 
   useEffect(() => {
     setIsLoading(true);
-    // setError(null);
-    fetchFilteredListingsClient(slug, searchParams)
+    // Extract params using .get()
+    const query = clientSearchParams.get('query') || undefined;
+    const minPrice = clientSearchParams.get('minPrice') || undefined;
+    const maxPrice = clientSearchParams.get('maxPrice') || undefined;
+    
+    const filters = { query, minPrice, maxPrice };
+
+    fetchFilteredListingsClient(slug, filters)
       .then(setData)
       .catch(err => {
         console.error("Failed to fetch listings:", err);
-        // setError(t.noListingsFound); // Or a more generic error message
+        // setError(t.noListingsFound); 
       })
       .finally(() => setIsLoading(false));
-  }, [slug, searchParams, t.noListingsFound]); // Added t.noListingsFound to deps in case error message uses it
+  }, [slug, clientSearchParams, t.noListingsFound]); // clientSearchParams is stable and can be a dependency
 
   const { listings, category, subcategory } = data;
 
