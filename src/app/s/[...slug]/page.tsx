@@ -1,7 +1,7 @@
 // src/app/s/[...slug]/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, use } from 'react';
 import { useSearchParams } from 'next/navigation'; // Import useSearchParams
 import { ListingCard } from '@/components/ListingCard';
 import { FilterBar } from '@/components/FilterBar';
@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 // Simulate fetching listings based on slug and filters
 // This function will now be called client-side
 async function fetchFilteredListingsClient(
-  slug: string[],
+  slug: string[] | undefined, // slug can be undefined initially if params promise not resolved
   filters: { query?: string; minPrice?: string; maxPrice?: string }
 ): Promise<{ listings: Listing[], category?: Category, subcategory?: Category }> {
   await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
@@ -82,12 +82,13 @@ const translations = {
 };
 
 interface SearchPageProps {
-  params: { slug: string[] };
-  // searchParams prop removed
+  params: { slug: string[] }; // This type might be { slug: string[] } or Promise<{ slug: string[] }>
+                               // React.use will handle it if `params` is a Promise.
 }
 
-export default function SearchPage({ params }: SearchPageProps) {
-  const { slug } = params;
+export default function SearchPage({ params: paramsProp }: SearchPageProps) {
+  const resolvedParams = use(paramsProp); // Resolve the params promise
+  const { slug } = resolvedParams; // Destructure slug after resolving
   const { language } = useLanguage();
   const t = translations[language];
 
@@ -219,3 +220,4 @@ function CardSkeleton() {
     </div>
   );
 }
+
