@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal, Menu, X, MessageSquare, ListChecks, Settings, ShieldCheck, Globe, LogOut as LogOutIcon, HelpCircle, Car, Building2, Laptop, Briefcase, Sofa, Shirt, Dog, Baby, Puzzle, Factory } from 'lucide-react';
+import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal, Menu, X, MessageSquare, ListChecks, Settings, ShieldCheck, Globe, LogOut as LogOutIcon, HelpCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons/Logo';
@@ -24,8 +24,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useState, useEffect, useCallback } from 'react';
-// import { mainSiteCategories_DEPRECATED, secondaryNavCategories_DEPRECATED, placeholderCategories_DEPRECATED } from '@/lib/placeholder-data'; // No longer used for categories
-import type { Category, User as UserType, IconMapping } from '@/lib/types';
+import type { Category, User as UserType } from '@/lib/types';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useLanguage } from '@/hooks/useLanguage';
 import { auth, db } from '@/lib/firebase';
@@ -33,7 +32,7 @@ import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase
 import { doc, getDoc, collection, getDocs, query as firestoreQuery, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import * as Icons from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton'; // Added Skeleton import
+import { Skeleton } from '@/components/ui/skeleton'; 
 
 // Simple translation dictionary
 const translations = {
@@ -44,14 +43,7 @@ const translations = {
     findPlaceholder: 'Find Cars, Mobile Phones and more...',
     egypt: 'Egypt',
     uae: 'UAE',
-    vehicles: 'Vehicles',
-    properties: 'Properties',
-    electronics: 'Electronics',
-    jobs: 'Jobs',
-    furniture: 'Furniture & Decor',
-    fashion: 'Fashion & Beauty',
-    pets: 'Pets',
-    kids: 'Kids & Babies',
+    // Static category names removed as dynamic ones will be translated by getCategoryName
     more: 'More',
     topCategories: 'Top Categories',
     allCategories: 'All Categories',
@@ -73,14 +65,7 @@ const translations = {
     findPlaceholder: 'ابحث عن سيارات، هواتف والمزيد...',
     egypt: 'مصر',
     uae: 'الإمارات',
-    vehicles: 'مركبات',
-    properties: 'عقارات',
-    electronics: 'إلكترونيات',
-    jobs: 'وظائف',
-    furniture: 'أثاث وديكور',
-    fashion: 'أزياء وجمال',
-    pets: 'حيوانات أليفة',
-    kids: 'أطفال ورضع',
+    // Static category names removed
     more: 'المزيد',
     topCategories: 'أهم الفئات',
     allCategories: 'جميع الفئات',
@@ -97,8 +82,8 @@ const translations = {
   }
 };
 
-const PREDEFINED_MAIN_SITE_CATEGORY_IDS = ['vehicles', 'properties']; // Example IDs
-const MAX_SECONDARY_NAV_CATEGORIES = 7; // Max number for secondary nav before "More"
+const PREDEFINED_MAIN_SITE_CATEGORY_IDS = ['vehicles', 'properties']; 
+const MAX_SECONDARY_NAV_CATEGORIES = 7; 
 
 export function Header() {
   const pathname = usePathname();
@@ -106,7 +91,6 @@ export function Header() {
   const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
-  // const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null); // Not strictly needed if currentUser has all info
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { language, setLanguage } = useLanguage();
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
@@ -132,14 +116,12 @@ export function Header() {
         });
         setAllCategories(fetchedCategories);
 
-        // Determine main site categories (e.g., based on predefined IDs or a flag in Firestore)
         const mainCategories = fetchedCategories.filter(cat => PREDEFINED_MAIN_SITE_CATEGORY_IDS.includes(cat.id));
         setMainSiteCategories(mainCategories);
 
-        // Determine secondary nav categories (remaining categories, up to a limit)
         const remainingCategories = fetchedCategories.filter(cat => !PREDEFINED_MAIN_SITE_CATEGORY_IDS.includes(cat.id));
         if (remainingCategories.length > MAX_SECONDARY_NAV_CATEGORIES) {
-            setSecondaryNavCategories(remainingCategories.slice(0, MAX_SECONDARY_NAV_CATEGORIES -1)); // -1 for "More"
+            setSecondaryNavCategories(remainingCategories.slice(0, MAX_SECONDARY_NAV_CATEGORIES -1)); 
             setMoreCategories(remainingCategories.slice(MAX_SECONDARY_NAV_CATEGORIES -1));
         } else {
             setSecondaryNavCategories(remainingCategories);
@@ -161,7 +143,6 @@ export function Header() {
     setIsLoadingAuth(true);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // setFirebaseAuthUser(user); // Not strictly needed for this component
         try {
           const userDocRef = doc(db, "users", user.uid);
           const userDocSnap = await getDoc(userDocRef);
@@ -185,10 +166,9 @@ export function Header() {
             joinDate: user.metadata.creationTime || new Date().toISOString(), isAdmin: false,
           });
           setIsAuthenticated(true);
-          toast({ title: "Profile Error", description: "Could not load full user details for header.", variant: "destructive" });
+          // toast({ title: "Profile Error", description: "Could not load full user details for header.", variant: "destructive" });
         }
       } else {
-        // setFirebaseAuthUser(null);
         setCurrentUser(null);
         setIsAuthenticated(false);
       }
@@ -213,15 +193,43 @@ export function Header() {
     setLanguage(language === 'en' ? 'ar' : 'en');
   };
 
-  // Helper to get category name based on current language (if translations are available)
   const getCategoryName = useCallback((category: Category): string => {
-    // This is a simplified example. For a full i18n solution, you'd use a library like i18next
-    // and have translations for all category names.
-    // For now, it just returns the stored name.
     if (language === 'ar') {
-        // Example of manual translation lookup if needed
-        // const arNames: Record<string, string> = { 'electronics': 'إلكترونيات', /* ... */ };
-        // return arNames[category.id] || category.name;
+        // This is a small, hardcoded lookup for demonstration.
+        // A real app should fetch translations from the DB or a dedicated i18n system.
+        const arNames: Record<string, string> = {
+            // Main Categories (IDs or English names)
+            'electronics': 'إلكترونيات',
+            'vehicles': 'مركبات',
+            'properties': 'عقارات',
+            'jobs': 'وظائف',
+            'furniture & home decor': 'أثاث وديكور', // Example assuming name from DB
+            'fashion & beauty': 'أزياء وجمال',
+            'pets': 'حيوانات أليفة',
+            'kids & babies': 'أطفال ورضع',
+            'books, sports & hobbies': 'كتب، رياضة وهوايات',
+            'services': 'خدمات',
+            'business & industrial': 'أعمال وصناعة',
+            // Subcategories (IDs or English names, ensure they are unique enough or use a different lookup)
+            'mobile phones': 'هواتف محمولة',
+            'tablets': 'أجهزة لوحية',
+            'cars': 'سيارات',
+            'motorcycles': 'دراجات نارية',
+            'apartments for rent': 'شقق للإيجار',
+            'villas for sale': 'فلل للبيع',
+        };
+        // Attempt to translate by ID first (more reliable if IDs are consistent)
+        // then by English name as a fallback. Convert to lowercase for case-insensitive matching.
+        const categoryIdLower = category.id.toLowerCase();
+        const categoryNameLower = category.name.toLowerCase();
+
+        if (arNames[categoryIdLower]) {
+            return arNames[categoryIdLower];
+        }
+        if (arNames[categoryNameLower]) {
+            return arNames[categoryNameLower];
+        }
+        return category.name; // Default to original name if no translation found
     }
     return category.name;
   }, [language]);
@@ -275,7 +283,7 @@ export function Header() {
         <DropdownMenuContent align="start" className="w-56" sideOffset={isMobile ? 0 : 5}>
           <DropdownMenuItem asChild onClick={isMobile ? () => setIsMobileMenuOpen(false) : undefined}>
             <Link href={categoryHref} className="font-semibold">
-              {language === 'ar' ? `الكل في ${categoryName}` : `All in ${categoryName}`}
+              {language === 'ar' ? `كل ${categoryName}` : `All ${categoryName}`}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -460,7 +468,7 @@ export function Header() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-56">
                     {moreCategories.map((item) => (
-                        renderCategoryWithSubcategories(item, false) // Render as full dropdown items
+                        renderCategoryWithSubcategories(item, false) 
                     ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
