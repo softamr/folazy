@@ -1,3 +1,4 @@
+
 // src/app/admin/dashboard/page.tsx
 'use client';
 
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where,getCountFromServer } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge'; // Added Badge import
 
 interface DashboardStats {
   totalUsers: number;
