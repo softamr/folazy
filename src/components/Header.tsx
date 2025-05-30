@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -217,6 +216,7 @@ export function Header() {
             'motorcycles': 'دراجات نارية',
             'apartments for rent': 'شقق للإيجار',
             'villas for sale': 'فلل للبيع',
+            'phones & tablets': 'الهواتف والأجهزة اللوحية', 
         };
         // Attempt to translate by ID first (more reliable if IDs are consistent)
         // then by English name as a fallback. Convert to lowercase for case-insensitive matching.
@@ -480,4 +480,3 @@ export function Header() {
     </header>
   );
 }
-
