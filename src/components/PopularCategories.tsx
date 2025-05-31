@@ -70,7 +70,9 @@ export function PopularCategories() {
             'villas for sale': 'فلل للبيع',
             'laptops': 'كمبيوتر محمول', 
             'cameras': 'كاميرات',
-            'phones & tablets': 'الهواتف والأجهزة اللوحية', // Added translation
+            'phones & tablets': 'الهواتف والأجهزة اللوحية',
+            'properties for rent': 'عقارات للإيجار',
+            'properties for sale': 'عقارات للبيع',
         };
         const subcategoryIdLower = subcategory.id.toLowerCase();
         const subcategoryNameLower = subcategory.name.toLowerCase();
