@@ -5,11 +5,11 @@ import { useLanguage } from '@/hooks/useLanguage';
 
 const translations = {
   en: {
-    copyright: 'MarketSquare. All rights reserved.',
+    copyright: 'Fwlazy. All rights reserved.',
     builtWith: 'Built with Next.js and Firebase.',
   },
   ar: {
-    copyright: 'ماركت سكوير. جميع الحقوق محفوظة.',
+    copyright: 'فولاكي. جميع الحقوق محفوظة.',
     builtWith: 'تم البناء باستخدام Next.js و Firebase.',
   }
 };

@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({ // Corrected variable name
 });
 
 export const metadata: Metadata = {
-  title: 'MarketSquare',
+  title: 'Fwlazy',
   description: 'Your local online marketplace.',
 };
 

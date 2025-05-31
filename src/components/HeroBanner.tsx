@@ -14,19 +14,19 @@ import { cn } from '@/lib/utils';
 const translations = {
   en: {
     titleLine1: "Discover Amazing Deals",
-    titleLine2: "On MarketSquare",
+    titleLine2: "On Fwlazy",
     description: "Explore thousands of listings from sellers near you. Find what you're looking for today!",
     postAdButton: "Post Your Ad Now",
     loadingImages: "Loading banner...",
-    noImagesConfigured: "Welcome to MarketSquare!",
+    noImagesConfigured: "Welcome to Fwlazy!",
   },
   ar: {
     titleLine1: "اكتشف عروضاً مذهلة",
-    titleLine2: "على ماركت سكوير",
+    titleLine2: "على فولاكي",
     description: "تصفح آلاف الإعلانات من البائعين بالقرب منك. اعثر على ما تبحث عنه اليوم!",
     postAdButton: "أضف إعلانك الآن",
     loadingImages: "جار تحميل البانر...",
-    noImagesConfigured: "أهلاً بك في ماركت سكوير!",
+    noImagesConfigured: "أهلاً بك في فولاكي!",
   }
 };
 
@@ -35,9 +35,9 @@ const HERO_BANNER_DOC_PATH = 'siteSettings/heroBanner';
 
 // Default images if Firestore has none or errors out - use full size placeholders
 const defaultSlideImages: HeroBannerImage[] = [
-  { id: 'default1', src: "https://placehold.co/1200x500.png", alt: "MarketSquare Promotion 1", uploadedAt: '', 'data-ai-hint': 'promotion marketing' },
-  { id: 'default2', src: "https://placehold.co/1200x500.png", alt: "MarketSquare Promotion 2", uploadedAt: '', 'data-ai-hint': 'community sale' },
-  { id: 'default3', src: "https://placehold.co/1200x500.png", alt: "MarketSquare Promotion 3", uploadedAt: '', 'data-ai-hint': 'online shopping' },
+  { id: 'default1', src: "https://placehold.co/1200x500.png", alt: "Fwlazy Promotion 1", uploadedAt: '', 'data-ai-hint': 'promotion marketing' },
+  { id: 'default2', src: "https://placehold.co/1200x500.png", alt: "Fwlazy Promotion 2", uploadedAt: '', 'data-ai-hint': 'community sale' },
+  { id: 'default3', src: "https://placehold.co/1200x500.png", alt: "Fwlazy Promotion 3", uploadedAt: '', 'data-ai-hint': 'online shopping' },
 ];
 
 export function HeroBanner() {
