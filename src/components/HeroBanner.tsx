@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useState, useEffect } from 'react';
 
 const translations = {
   en: {
@@ -25,9 +26,29 @@ const translations = {
   }
 };
 
+const slideImages = [
+  { src: "https://placehold.co/400x400.png", alt: "Valu promotion image 1", hint: "phone payment" },
+  { src: "https://placehold.co/400x400.png", alt: "Valu promotion image 2", hint: "online shopping" },
+  { src: "https://placehold.co/400x400.png", alt: "Valu promotion image 3", hint: "easy transaction" },
+];
+
+const SLIDESHOW_INTERVAL = 3000; // 3 seconds
+
 export function HeroBanner() {
   const { language } = useLanguage();
   const t = translations[language];
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentImageIndex((prevIndex) =>
+        prevIndex === slideImages.length - 1 ? 0 : prevIndex + 1
+      );
+    }, SLIDESHOW_INTERVAL);
+    return () => clearInterval(timer); // Cleanup on component unmount
+  }, []);
+
+  const currentImage = slideImages[currentImageIndex];
 
   return (
     <div className="relative bg-gradient-to-r from-red-600 via-red-500 to-teal-500 text-white py-10 md:py-16 px-6 rounded-lg overflow-hidden shadow-lg">
@@ -46,11 +67,13 @@ export function HeroBanner() {
         <div className="md:w-1/2 flex justify-center md:justify-end items-center">
           <div className="relative w-60 h-60 sm:w-72 sm:h-72 md:w-80 md:h-80">
             <Image 
-              src="https://placehold.co/400x400.png"
-              alt={t.valuAlt}
+              key={currentImage.src} // Add key to force re-render for fade effect if CSS added later
+              src={currentImage.src}
+              alt={currentImage.alt}
               layout="fill"
               objectFit="contain"
-              data-ai-hint="phone payment"
+              data-ai-hint={currentImage.hint}
+              className="transition-opacity duration-500 ease-in-out" // Basic fade (won't work well without more complex handling)
             />
              <span className={`absolute bottom-4 ${language === 'ar' ? 'left-4' : 'right-4'} text-4xl font-bold text-white bg-teal-600 px-3 py-1 rounded`} style={{fontFamily: "'Arial Black', Gadget, sans-serif"}}>
               {t.valuText}
