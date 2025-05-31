@@ -1,43 +1,72 @@
+
 // src/app/s/[...slug]/page.tsx
 'use client';
 
 import { useState, useEffect, useCallback, use } from 'react';
-import { useSearchParams } from 'next/navigation'; // Import useSearchParams
+import { useSearchParams } from 'next/navigation';
 import { ListingCard } from '@/components/ListingCard';
 import { FilterBar } from '@/components/FilterBar';
-import { placeholderListings, placeholderCategories_DEPRECATED } from '@/lib/placeholder-data';
-import type { Listing, Category } from '@/lib/types';
-import { ChevronRight, Home, Search as SearchIcon, PackageOpen } from 'lucide-react';
+import { placeholderListings } from '@/lib/placeholder-data'; // Still using placeholderListings for data source
+import type { Listing, Category as CategoryType } from '@/lib/types';
+import { ChevronRight, Home, PackageOpen } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { useLanguage, type Language } from '@/hooks/useLanguage';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Skeleton } from '@/components/ui/skeleton';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query as firestoreQuery, orderBy as firestoreOrderBy } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
-// Simulate fetching listings based on slug and filters
-// This function will now be called client-side
+// This function will now use live category data for names, but placeholderListings for items.
 async function fetchFilteredListingsClient(
-  slug: string[] | undefined, // slug can be undefined initially if params promise not resolved
-  filters: { query?: string; minPrice?: string; maxPrice?: string }
-): Promise<{ listings: Listing[], category?: Category, subcategory?: Category }> {
+  slug: string[] | undefined,
+  filters: { query?: string; minPrice?: string; maxPrice?: string; categoryId?: string; subcategoryId?: string },
+  allFirestoreCategories: CategoryType[] // Pass live categories here
+): Promise<{ listings: Listing[], category?: CategoryType, subcategory?: CategoryType, breadcrumbCategories: CategoryType[] }> {
   await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
   
   let currentListings = placeholderListings.filter(l => l.status === 'approved');
-  let category: Category | undefined;
-  let subcategory: Category | undefined;
+  let category: CategoryType | undefined;
+  let subcategory: CategoryType | undefined;
+  const breadcrumbCategories: CategoryType[] = [];
 
-  if (slug && slug.length > 0 && slug[0] !== 'all-listings') {
-    const mainCategorySlug = slug[0];
-    category = placeholderCategories_DEPRECATED.find(c => c.id === mainCategorySlug);
+  // Determine category/subcategory from SLUG first for breadcrumbs primarily
+  let slugCategory: CategoryType | undefined;
+  let slugSubcategory: CategoryType | undefined;
 
-    if (category) {
-      currentListings = currentListings.filter(l => l.category.id === category!.id);
-      if (slug.length > 1 && category.subcategories) {
-        const subCategorySlug = slug[1];
-        subcategory = category.subcategories.find(sc => sc.id === subCategorySlug);
-        if (subcategory) {
-          currentListings = currentListings.filter(l => l.subcategory?.id === subcategory!.id);
+  if (slug && slug.length > 0 && slug[0] !== 'all-listings' && allFirestoreCategories.length > 0) {
+    slugCategory = allFirestoreCategories.find(c => c.id === slug[0]);
+    if (slugCategory) {
+      breadcrumbCategories.push(slugCategory);
+      if (slug.length > 1 && slugCategory.subcategories) {
+        slugSubcategory = slugCategory.subcategories.find(sc => sc.id === slug[1]);
+        if (slugSubcategory) {
+          breadcrumbCategories.push(slugSubcategory);
         }
       }
+    }
+  }
+  
+  // Determine category/subcategory for FILTERING (can be from slug or query params)
+  let filterCategoryId = filters.categoryId;
+  let filterSubcategoryId = filters.subcategoryId;
+
+  if (!filterCategoryId && slugCategory) {
+    filterCategoryId = slugCategory.id;
+  }
+  if (!filterSubcategoryId && slugSubcategory) {
+    filterSubcategoryId = slugSubcategory.id;
+  }
+
+  // Filter listings
+  if (filterCategoryId) {
+    currentListings = currentListings.filter(l => l.category.id === filterCategoryId);
+    category = allFirestoreCategories.find(c => c.id === filterCategoryId); // For page title
+  }
+  if (filterSubcategoryId) {
+    currentListings = currentListings.filter(l => l.subcategory?.id === filterSubcategoryId);
+    if (category && category.subcategories) {
+      subcategory = category.subcategories.find(sc => sc.id === filterSubcategoryId); // For page title
     }
   }
   
@@ -55,7 +84,16 @@ async function fetchFilteredListingsClient(
     currentListings = currentListings.filter(l => l.price <= Number(filters.maxPrice));
   }
   
-  return { listings: currentListings.slice(0, 12), category, subcategory }; // Return a slice for pagination example
+  // If breadcrumbs are empty but filters were applied, try to populate breadcrumb from filter category
+  if (breadcrumbCategories.length === 0 && category) {
+    breadcrumbCategories.push(category);
+    if (subcategory) {
+        breadcrumbCategories.push(subcategory);
+    }
+  }
+
+
+  return { listings: currentListings.slice(0, 12), category, subcategory, breadcrumbCategories };
 }
 
 const translations = {
@@ -68,6 +106,8 @@ const translations = {
     previous: 'Previous',
     next: 'Next',
     loadingListings: 'Loading listings...',
+    errorLoadingCategories: 'Could not load category data.',
+    errorTitle: 'Error',
   },
   ar: {
     home: 'الرئيسية',
@@ -78,65 +118,108 @@ const translations = {
     previous: 'السابق',
     next: 'التالي',
     loadingListings: 'جار تحميل الإعلانات...',
+    errorLoadingCategories: 'لم نتمكن من تحميل بيانات الفئة.',
+    errorTitle: 'خطأ',
   }
 };
 
 interface SearchPageProps {
-  params: { slug: string[] }; // This type might be { slug: string[] } or Promise<{ slug: string[] }>
-                               // React.use will handle it if `params` is a Promise.
+  params: { slug?: string[] }; // slug can be undefined if route is /s for example
 }
 
 export default function SearchPage({ params: paramsProp }: SearchPageProps) {
-  const resolvedParams = use(paramsProp); // Resolve the params promise
-  const { slug } = resolvedParams; // Destructure slug after resolving
+  const resolvedParams = use(paramsProp);
+  const slug = resolvedParams.slug;
   const { language } = useLanguage();
   const t = translations[language];
+  const { toast } = useToast();
 
-  const clientSearchParams = useSearchParams(); // Use hook to get search params
+  const clientSearchParams = useSearchParams();
 
-  const [data, setData] = useState<{ listings: Listing[], category?: Category, subcategory?: Category }>({ listings: [] });
-  const [isLoading, setIsLoading] = useState(true);
-  // const [error, setError] = useState<string | null>(null); // Optional: for error handling display
+  const [allCategoriesData, setAllCategoriesData] = useState<CategoryType[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [data, setData] = useState<{ listings: Listing[], category?: CategoryType, subcategory?: CategoryType, breadcrumbCategories: CategoryType[] }>({ listings: [], breadcrumbCategories: [] });
+  const [isLoadingListings, setIsLoadingListings] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
-    // Extract params using .get()
+    const fetchCategoriesFromDB = async () => {
+      setIsLoadingCategories(true);
+      try {
+        const categoriesRef = collection(db, 'categories');
+        const q = firestoreQuery(categoriesRef, firestoreOrderBy('name'));
+        const querySnapshot = await getDocs(q);
+        const fetchedCategories: CategoryType[] = [];
+        querySnapshot.forEach((doc) => {
+          fetchedCategories.push({ id: doc.id, ...doc.data() } as CategoryType);
+        });
+        setAllCategoriesData(fetchedCategories);
+      } catch (error) {
+        console.error("Error fetching categories for search page:", error);
+        toast({ title: t.errorTitle, description: t.errorLoadingCategories, variant: "destructive" });
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+    fetchCategoriesFromDB();
+  }, [toast, t]);
+
+  useEffect(() => {
+    if (isLoadingCategories) return; // Don't fetch listings until categories are loaded
+
+    setIsLoadingListings(true);
     const query = clientSearchParams.get('query') || undefined;
     const minPrice = clientSearchParams.get('minPrice') || undefined;
     const maxPrice = clientSearchParams.get('maxPrice') || undefined;
+    const categoryId = clientSearchParams.get('categoryId') || undefined;
+    const subcategoryId = clientSearchParams.get('subcategoryId') || undefined;
     
-    const filters = { query, minPrice, maxPrice };
+    const filters = { query, minPrice, maxPrice, categoryId, subcategoryId };
 
-    fetchFilteredListingsClient(slug, filters)
+    fetchFilteredListingsClient(slug, filters, allCategoriesData)
       .then(setData)
       .catch(err => {
         console.error("Failed to fetch listings:", err);
-        // setError(t.noListingsFound); 
       })
-      .finally(() => setIsLoading(false));
-  }, [slug, clientSearchParams, t.noListingsFound]); // clientSearchParams is stable and can be a dependency
+      .finally(() => setIsLoadingListings(false));
+  }, [slug, clientSearchParams, isLoadingCategories, allCategoriesData]);
 
-  const { listings, category, subcategory } = data;
+  const { listings, category, subcategory, breadcrumbCategories } = data;
 
-  const isAllListings = slug && slug.length === 1 && slug[0] === 'all-listings';
-  const pageTitle = isAllListings 
-    ? t.allListings 
-    : subcategory?.name || category?.name || t.listings;
+  const getCategoryNameForDisplay = (cat: CategoryType): string => {
+    if (language === 'ar') {
+        const arNames: Record<string, string> = {
+             'electronics': 'إلكترونيات', 'vehicles': 'مركبات', 'properties': 'عقارات',
+             'mobiles': 'هواتف محمولة', 'tablets': 'أجهزة لوحية', 'cars': 'سيارات',
+             'apartments for rent': 'شقق للإيجار',
+        };
+        return arNames[cat.id.toLowerCase()] || arNames[cat.name.toLowerCase()] || cat.name;
+    }
+    return cat.name;
+  };
   
-  if (isLoading) {
+  const isAllListingsPage = !slug || (slug && slug.length === 1 && slug[0] === 'all-listings');
+  
+  let pageTitle = t.allListings;
+  if (!isAllListingsPage && breadcrumbCategories.length > 0) {
+    pageTitle = getCategoryNameForDisplay(breadcrumbCategories[breadcrumbCategories.length - 1]);
+  } else if (category) { // Fallback to category from filter if no slug
+    pageTitle = getCategoryNameForDisplay(category);
+    if (subcategory) {
+        pageTitle = getCategoryNameForDisplay(subcategory);
+    }
+  }
+
+
+  if (isLoadingCategories || isLoadingListings) {
     return (
       <div className="space-y-8">
-        {/* Breadcrumb Skeletons */}
         <div className="flex items-center space-x-1">
           <Skeleton className="h-5 w-12" />
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
           <Skeleton className="h-5 w-24" />
         </div>
-        {/* Title Skeleton */}
         <Skeleton className="h-9 w-1/3 mb-4" />
-        {/* FilterBar might have its own loading, or we can add skeleton for it */}
         <FilterBar /> 
-        {/* Listing Card Skeletons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {Array.from({ length: 8 }).map((_, index) => (
             <CardSkeleton key={index} />
@@ -148,42 +231,38 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+      <div className="flex items-center space-x-1 text-sm text-muted-foreground flex-wrap">
         <Link href="/" className="hover:text-primary flex items-center">
-          <Home className="h-4 w-4 me-1" /> {t.home}
+          <Home className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`} /> {t.home}
         </Link>
-        {category && !isAllListings && (
-          <>
+        {breadcrumbCategories.map((bcCategory, index) => (
+          <React.Fragment key={bcCategory.id}>
             <ChevronRight className="h-4 w-4 mx-1" />
-            <Link href={category.href || `/s/${category.id}`} className="hover:text-primary">
-              {category.name}
-            </Link>
-          </>
-        )}
-        {subcategory && !isAllListings && (
-          <>
-            <ChevronRight className="h-4 w-4 mx-1" />
-            <Link href={subcategory.href || `/s/${category?.id}/${subcategory.id}`} className="hover:text-primary">
-              {subcategory.name}
-            </Link>
-          </>
-        )}
-        {isAllListings && (
-             <>
-            <ChevronRight className="h-4 w-4 mx-1" />
-            <span>{t.allListings}</span>
-          </>
+            {index === breadcrumbCategories.length - 1 && !clientSearchParams.get('subcategoryId') && slug && slug.length -1 === index ? ( // Last item in breadcrumb, not a specific subcat filter
+                <span>{getCategoryNameForDisplay(bcCategory)}</span>
+            ): (
+                 <Link href={bcCategory.href || `/s/${breadcrumbCategories.slice(0, index + 1).map(c=>c.id).join('/')}`} className="hover:text-primary">
+                    {getCategoryNameForDisplay(bcCategory)}
+                </Link>
+            )}
+          </React.Fragment>
+        ))}
+        {isAllListingsPage && breadcrumbCategories.length === 0 && (
+            <>
+                <ChevronRight className="h-4 w-4 mx-1" />
+                <span>{t.allListings}</span>
+            </>
         )}
       </div>
 
       <h1 className="text-3xl font-bold text-foreground">{pageTitle}</h1>
       
-      <FilterBar /> {/* FilterBar itself is not translated in this change */}
+      <FilterBar />
 
       {listings.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {listings.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} />
+          {listings.map((listingItem) => (
+            <ListingCard key={listingItem.id} listing={listingItem} />
           ))}
         </div>
       ) : (
@@ -196,17 +275,17 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
         </div>
       )}
 
-      {listings.length > 0 && (
+      {/* Pagination placeholder */}
+      {listings.length > 0 && ( 
         <div className="flex justify-center mt-12 gap-2">
-          <Button variant="outline">{t.previous}</Button>
-          <Button variant="outline">{t.next}</Button>
+          <Button variant="outline" disabled>{t.previous}</Button>
+          <Button variant="outline" disabled>{t.next}</Button>
         </div>
       )}
     </div>
   );
 }
 
-// Simple Skeleton for ListingCard
 function CardSkeleton() {
   return (
     <div className="flex flex-col space-y-3">
@@ -220,4 +299,3 @@ function CardSkeleton() {
     </div>
   );
 }
-
