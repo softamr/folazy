@@ -220,6 +220,7 @@ export function Header() {
             'books, sports & hobbies': 'كتب، رياضة وهوايات',
             'services': 'خدمات',
             'business & industrial': 'أعمال وصناعة',
+            'businesses & industrial': 'أعمال وصناعة', // Added for plural form
 
             // Subcategories (by ID or English name as fallback)
             'mobiles': 'هواتف محمولة', // often used as id
