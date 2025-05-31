@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import * as Icons from 'lucide-react';
 import { HelpCircle } from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
+import { cn } from '@/lib/utils';
 
 const translations = {
   en: {
@@ -131,12 +132,12 @@ export function PopularCategories() {
                   <Skeleton className="h-8 w-8 mb-2 rounded-full" />
                   <Skeleton className="h-5 w-3/4" />
                 </CardHeader>
-                <CardContent className="text-xs px-3 pb-3 space-y-1 text-center flex-grow">
+                <CardContent className={cn("text-xs px-3 pb-3 space-y-1 flex-grow", language === 'ar' ? 'text-right' : 'text-left')}>
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-5/6" />
                 </CardContent>
-                 <div className="px-3 pb-3 mt-auto text-center">
-                   <Skeleton className="h-4 w-1/2 mx-auto" />
+                 <div className={cn("px-3 pb-3 mt-auto", language === 'ar' ? 'text-right' : 'text-left')}>
+                   <Skeleton className="h-4 w-1/2" />
                  </div>
               </Card>
             ))}
@@ -172,15 +173,13 @@ export function PopularCategories() {
               <div key={category.id} className="group">
                 <Card className="h-full flex flex-col hover:shadow-md transition-shadow bg-card">
                   <CardHeader className="items-center pt-4 pb-2">
-                    {/* Icon was here, removed as per request */}
                     <CardTitle className="text-base font-medium text-center text-foreground group-hover:text-primary">
                       <Link href={categoryHref} className="focus:outline-none focus:ring-2 focus:ring-ring rounded relative z-10">
-                        {/* Removed: <span className="absolute inset-0" aria-hidden="true" /> */}
                         {translatedCategoryName}
                       </Link>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="text-xs text-muted-foreground px-3 pb-3 space-y-1 text-center flex-grow">
+                  <CardContent className={cn("text-xs text-muted-foreground px-3 pb-3 space-y-1 flex-grow", language === 'ar' ? 'text-right' : 'text-left')}>
                     {(category.subcategories || []).slice(0, 2).map((sub) => (
                       <div key={sub.id}>
                         <Link
@@ -193,7 +192,7 @@ export function PopularCategories() {
                     ))}
                   </CardContent>
                    {(category.subcategories && category.subcategories.length > 0) && (
-                    <div className="px-3 pb-3 mt-auto text-center">
+                    <div className={cn("px-3 pb-3 mt-auto", language === 'ar' ? 'text-right' : 'text-left')}>
                         <Link href={categoryHref} className="text-xs font-medium text-primary hover:underline relative z-10">
                           {t.allIn(translatedCategoryName)}
                         </Link>
