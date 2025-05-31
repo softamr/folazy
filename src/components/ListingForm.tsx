@@ -242,7 +242,6 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
         locSnapshot.forEach((doc) => fetchedCountries.push({ id: doc.id, ...doc.data() } as LocationCountry));
         setAllCountries(fetchedCountries);
 
-        // If in edit mode, set initial selections after categories/locations are loaded
         if (listingToEdit) {
           if (listingToEdit.category.id && fetchedCategories.length > 0) {
             const mainCat = fetchedCategories.find(c => c.id === listingToEdit.category.id);
@@ -270,7 +269,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
       }
     };
     fetchInitialData();
-  }, [toast, t, listingToEdit]); // listingToEdit in dependency array to re-trigger selections if it changes
+  }, [toast, t, listingToEdit]);
 
 
   useEffect(() => {
@@ -293,16 +292,19 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
       const country = allCountries.find(c => c.id === watchedCountryId);
       setSelectedCountry(country || null);
       setAvailableGovernorates(country?.governorates || []);
+
       if (!isEditMode || (listingToEdit && watchedCountryId !== listingToEdit.locationCountry?.id)) {
-        form.setValue('governorateId', '');
+        form.setValue('governorateId', ''); 
+        setSelectedGovernorate(null); 
         form.setValue('districtId', NO_DISTRICT_VALUE);
+        setAvailableDistricts([]); 
       }
-      setSelectedGovernorate(null);
-      setAvailableDistricts([]);
-    } else if (!watchedCountryId) {
+    } else if (!watchedCountryId) { 
       setSelectedCountry(null);
       setAvailableGovernorates([]);
-      if (!isEditMode) {
+      setSelectedGovernorate(null);
+      setAvailableDistricts([]);
+      if (!isEditMode) { 
         form.setValue('governorateId', '');
         form.setValue('districtId', NO_DISTRICT_VALUE);
       }
@@ -317,10 +319,12 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
       if (!isEditMode || (listingToEdit && watchedGovernorateId !== listingToEdit.locationGovernorate?.id)) {
         form.setValue('districtId', NO_DISTRICT_VALUE);
       }
-    } else if (!watchedGovernorateId) {
+    } else if (!watchedGovernorateId) { 
       setSelectedGovernorate(null);
       setAvailableDistricts([]);
-      if (!isEditMode) form.setValue('districtId', NO_DISTRICT_VALUE);
+      if (!isEditMode) {
+         form.setValue('districtId', NO_DISTRICT_VALUE);
+      }
     }
   }, [watchedGovernorateId, selectedCountry, form, isEditMode, listingToEdit]);
 
@@ -342,7 +346,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
 
       if (userDocSnap.exists()) {
         seller = { id: userDocSnap.id, ...userDocSnap.data() } as User;
-      } else { // Should ideally not happen for a logged-in user if profile creation is robust
+      } else { 
         seller = {
           id: currentUserAuth.uid, name: currentUserAuth.displayName || "Anonymous User",
           email: currentUserAuth.email || "", avatarUrl: currentUserAuth.photoURL || "",
@@ -369,12 +373,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
       }
       const locationDisplay = [districtInfo?.name, governorateData.name, countryData.name].filter(Boolean).join(', ');
       
-      // Image handling: For now, image uploads and updates are simplified / placeholders.
-      // In a real app, you'd upload files to Firebase Storage and get URLs.
-      // For new listings, `imageUrls` would be from newly uploaded files.
-      // For edited listings, if new files selected, upload them, otherwise keep existing URLs.
-      // This example does not implement file upload to storage.
-      const imageUrls: string[] = imagePreviews.length > 0 ? imagePreviews : []; // Placeholder
+      const imageUrls: string[] = imagePreviews.length > 0 ? imagePreviews : [];
 
       const listingPayload = {
         title: data.title, description: data.description, price: data.price,
@@ -384,30 +383,21 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
         locationCountry: { id: countryData.id, name: countryData.name },
         locationGovernorate: { id: governorateData.id, name: governorateData.name },
         locationDistrict: districtInfo,
-        // `images` will not be updated if `isEditMode` and no new images are selected.
-        // This simplistic approach assumes if `imagePreviews` (derived from new file selection) has content,
-        // it's intended for update. Otherwise, existing images (if any) are kept by not including `images` in `updateDoc`.
       };
 
       if (isEditMode && listingToEdit) {
         const listingRef = doc(db, 'listings', listingToEdit.id);
         let updateData: Partial<ListingType> = { ...listingPayload };
-        // Only include images if new ones were selected (indicated by form.images having FileList)
-        // This simple check is not robust. A real app would track if files changed.
-        if (form.getValues('images')) { // if FileList is populated
-            // Here you would upload new images to storage and get new URLs for updateData.images
-            // For now, if user selects new images, imagePreviews is updated,
-            // and we'll just use those (assuming they are already URLs - which is not true for FileList)
-            // This part is a simplification:
-            updateData.images = imagePreviews; // This assumes imagePreviews are final URLs after upload
+        if (form.getValues('images')) { 
+            updateData.images = imagePreviews; 
         }
         await updateDoc(listingRef, updateData);
         toast({ title: t.listingUpdatedTitle, description: t.listingUpdatedDesc });
-        router.push(`/listings/${listingToEdit.id}`); // Redirect to listing detail
+        router.push(`/listings/${listingToEdit.id}`); 
       } else {
         const newListingData: Omit<ListingType, 'id'> = {
           ...listingPayload,
-          images: imageUrls, // From selected files or placeholder
+          images: imageUrls, 
           seller: seller,
           postedDate: new Date().toISOString(),
           status: 'pending',
@@ -415,7 +405,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
         };
         await addDoc(collection(db, 'listings'), newListingData);
         toast({ title: t.listingSubmittedTitle, description: t.listingSubmittedDesc });
-        form.reset(defaultFormValues); // Reset to initial defaults
+        form.reset(defaultFormValues); 
         setImagePreviews([]);
         setSelectedMainCategory(null); setAvailableSubcategories([]);
         setSelectedCountry(null); setAvailableGovernorates([]);
@@ -436,12 +426,11 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
-      // Revoke old object URLs if they exist to prevent memory leaks
       imagePreviews.forEach(previewUrl => { if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); });
       
       const newPreviews = filesArray.map(file => URL.createObjectURL(file));
       setImagePreviews(newPreviews);
-      form.setValue('images', event.target.files); // Store FileList for processing in onSubmit
+      form.setValue('images', event.target.files); 
     }
   };
 
@@ -537,7 +526,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel className="flex items-center"><Globe2 className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`}/>{t.countryLabel}</FormLabel>
-                            <Select onValueChange={(value) => { field.onChange(value); if (!isEditMode) {form.setValue('governorateId', ''); form.setValue('districtId', NO_DISTRICT_VALUE);} }} value={field.value}
+                            <Select onValueChange={(value) => { field.onChange(value); }} value={field.value}
                             disabled={isSubmitting || isLoadingLocations} dir={language === 'ar' ? 'rtl' : 'ltr'}>
                             <FormControl><SelectTrigger><SelectValue placeholder={isLoadingLocations ? t.loadingLocations : t.selectCountryPlaceholder} /></SelectTrigger></FormControl>
                             <SelectContent>
@@ -553,7 +542,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel className="flex items-center"><Building className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`}/>{t.governorateLabel}</FormLabel>
-                            <Select onValueChange={(value) => { field.onChange(value); if(!isEditMode) form.setValue('districtId', NO_DISTRICT_VALUE);}} value={field.value}
+                            <Select onValueChange={(value) => { field.onChange(value);}} value={field.value}
                             disabled={isSubmitting || isLoadingLocations || !selectedCountry || availableGovernorates.length === 0} dir={language === 'ar' ? 'rtl' : 'ltr'}>
                             <FormControl><SelectTrigger><SelectValue placeholder={t.selectGovernoratePlaceholder} /></SelectTrigger></FormControl>
                             <SelectContent>
@@ -565,7 +554,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
                         )}
                     />
                 </div>
-                {(selectedGovernorate || availableDistricts.length > 0) && (
+                {(selectedGovernorate || availableDistricts.length > 0) && ( // Show district only if a governorate is selected or if there are districts (e.g. in edit mode)
                     <FormField
                         control={form.control} name="districtId"
                         render={({ field }) => (
@@ -621,3 +610,4 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
   );
 }
 
+    
