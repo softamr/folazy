@@ -22,11 +22,11 @@ const translations = {
   },
   ar: {
     titleLine1: "اكتشف عروضاً مذهلة",
-    titleLine2: "على فولاكي",
+    titleLine2: "على فولاذي",
     description: "تصفح آلاف الإعلانات من البائعين بالقرب منك. اعثر على ما تبحث عنه اليوم!",
     postAdButton: "أضف إعلانك الآن",
     loadingImages: "جار تحميل البانر...",
-    noImagesConfigured: "أهلاً بك في فولاكي!",
+    noImagesConfigured: "أهلاً بك في فولاذي!",
   }
 };
 
@@ -139,3 +139,4 @@ export function HeroBanner() {
     </div>
   );
 }
+

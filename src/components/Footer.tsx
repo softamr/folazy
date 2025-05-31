@@ -9,7 +9,7 @@ const translations = {
     builtWith: 'Built with Next.js and Firebase.',
   },
   ar: {
-    copyright: 'فولاكي. جميع الحقوق محفوظة.',
+    copyright: 'فولاذي. جميع الحقوق محفوظة.',
     builtWith: 'تم البناء باستخدام Next.js و Firebase.',
   }
 };

@@ -44,7 +44,7 @@ const translations = {
     // Component text
     createAccountTitle: "Create an Account",
     welcomeBackTitle: "Welcome Back!",
-    joinMarketSquareDesc: "Join Fwlazy today.",
+    joinFwlazyDesc: "Join Fwlazy today.",
     loginToContinueDesc: "Log in to continue to Fwlazy.",
     fullNameLabel: "Full Name",
     fullNamePlaceholder: "John Doe",
@@ -90,8 +90,8 @@ const translations = {
     passwordsDontMatch: "كلمات المرور غير متطابقة",
     createAccountTitle: "إنشاء حساب",
     welcomeBackTitle: "أهلاً بعودتك!",
-    joinMarketSquareDesc: "انضم إلى فولاكي اليوم.",
-    loginToContinueDesc: "سجل الدخول للمتابعة إلى فولاكي.",
+    joinFwlazyDesc: "انضم إلى فولاذي اليوم.",
+    loginToContinueDesc: "سجل الدخول للمتابعة إلى فولاذي.",
     fullNameLabel: "الاسم الكامل",
     fullNamePlaceholder: "فلان الفلاني",
     emailLabel: "البريد الإلكتروني",
@@ -251,7 +251,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           {isSignup ? t.createAccountTitle : t.welcomeBackTitle}
         </CardTitle>
         <CardDescription>
-          {isSignup ? t.joinMarketSquareDesc : t.loginToContinueDesc}
+          {isSignup ? t.joinFwlazyDesc : t.loginToContinueDesc}
         </CardDescription>
       </CardHeader>
       <CardContent>
