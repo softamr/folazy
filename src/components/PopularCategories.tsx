@@ -55,7 +55,7 @@ export function PopularCategories() {
 
         if (arNames[categoryIdLower]) return arNames[categoryIdLower];
         if (arNames[categoryNameLower]) return arNames[categoryNameLower];
-        return category.name; 
+        return category.name;
     }
     return category.name;
   };
@@ -68,7 +68,7 @@ export function PopularCategories() {
             'motorcycles': 'دراجات نارية',
             'apartments for rent': 'شقق للإيجار',
             'villas for sale': 'فلل للبيع',
-            'laptops': 'كمبيوتر محمول', 
+            'laptops': 'كمبيوتر محمول',
             'cameras': 'كاميرات',
             'phones & tablets': 'الهواتف والأجهزة اللوحية',
             'properties for rent': 'عقارات للإيجار',
@@ -159,7 +159,7 @@ export function PopularCategories() {
               <div key={category.id} className="group">
                 <Card className="h-full flex flex-col hover:shadow-md transition-shadow bg-card">
                   <CardHeader className="items-center pt-4 pb-2">
-                    <IconComponent className="h-8 w-8 mb-2 text-primary" />
+                    {/* Icon was here, removed as per request */}
                     <CardTitle className="text-base font-medium text-center text-foreground group-hover:text-primary">
                       <Link href={categoryHref} className="focus:outline-none focus:ring-2 focus:ring-ring rounded">
                         <span className="absolute inset-0" aria-hidden="true" />
