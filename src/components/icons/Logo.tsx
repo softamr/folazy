@@ -4,34 +4,22 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 220 60" // Increased viewBox for two lines
-      width="120" // Adjusted width
-      height="32.7" // Adjusted height for aspect ratio
-      aria-label="Dubizzle Logo"
+      viewBox="0 0 150 40" // Adjusted for single line "fwlazy"
+      width="120" // Keep similar width
+      height="32"  // Adjusted height for new aspect ratio (120 / (150/40))
+      aria-label="Fwlazy Logo" // Updated aria-label
       {...props}
     >
-      {/* Transparent background */}
-      {/* <rect width="220" height="60" rx="5" fill="transparent" /> */}
       <text
         x="5" // Start from left
-        y="30" // Position for "dubizzle"
+        y="30" // Adjusted y for positioning within new viewBox
         fontFamily="var(--font-geist-sans), Arial, sans-serif"
-        fontSize="28" // Larger font size for "dubizzle"
+        fontSize="28" // Kept font size
         fontWeight="bold"
-        fill="hsl(var(--foreground))" // Use foreground color for text
+        fill="hsl(var(--foreground))"
         textAnchor="start"
       >
-        dubizzle
-      </text>
-      <text
-        x="5" // Start from left
-        y="50" // Position for "formerly OLX"
-        fontFamily="var(--font-geist-sans), Arial, sans-serif"
-        fontSize="12" // Smaller font size
-        fill="hsl(var(--muted-foreground))" // Muted color
-        textAnchor="start"
-      >
-        formerly OLX
+        fwlazy
       </text>
     </svg>
   );
