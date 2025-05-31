@@ -2,7 +2,7 @@
 // src/app/s/[...slug]/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback, use } from 'react';
+import React, { useState, useEffect, useCallback, use } from 'react'; // Added React import
 import { useSearchParams } from 'next/navigation';
 import { ListingCard } from '@/components/ListingCard';
 import { FilterBar } from '@/components/FilterBar';
@@ -299,3 +299,4 @@ function CardSkeleton() {
     </div>
   );
 }
+
