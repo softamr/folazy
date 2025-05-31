@@ -100,6 +100,7 @@ export function Header() {
   const [secondaryNavCategories, setSecondaryNavCategories] = useState<Category[]>([]);
   const [moreCategories, setMoreCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const t = translations[language];
 
@@ -191,6 +192,16 @@ export function Header() {
 
   const toggleLanguage = () => {
     setLanguage(language === 'en' ? 'ar' : 'en');
+  };
+
+  const handleSearch = (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/s/all-listings?query=${encodeURIComponent(searchQuery.trim())}`);
+    } else {
+      router.push(`/s/all-listings`);
+    }
+    setSearchQuery(''); // Optionally clear search after submission
   };
 
   const getCategoryName = useCallback((category: Category): string => {
@@ -477,7 +488,7 @@ export function Header() {
           })}
         </div>
 
-        <div className="flex-grow mx-4 hidden md:flex items-center gap-2">
+        <form onSubmit={handleSearch} className="flex-grow mx-4 hidden md:flex items-center gap-2">
            <Select defaultValue="egypt">
             <SelectTrigger className="w-[120px] h-10 text-sm focus:ring-0">
               <MapPin className="h-4 w-4 me-1 text-muted-foreground" /><SelectValue />
@@ -485,10 +496,18 @@ export function Header() {
             <SelectContent><SelectItem value="egypt">{t.egypt}</SelectItem><SelectItem value="uae">{t.uae}</SelectItem></SelectContent>
           </Select>
           <div className="relative flex-grow">
-            <Input type="search" placeholder={t.findPlaceholder} className="h-10 ps-4 pe-10 w-full"/>
-            <Button type="submit" size="icon" className="absolute end-1 top-1/2 -translate-y-1/2 h-8 w-8 bg-primary hover:bg-primary/90"><Search className="h-4 w-4 text-primary-foreground" /></Button>
+            <Input 
+              type="search" 
+              placeholder={t.findPlaceholder} 
+              className="h-10 ps-4 pe-10 w-full"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <Button type="submit" size="icon" className="absolute end-1 top-1/2 -translate-y-1/2 h-8 w-8 bg-primary hover:bg-primary/90">
+              <Search className="h-4 w-4 text-primary-foreground" />
+            </Button>
           </div>
-        </div>
+        </form>
 
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" size="sm" className="text-sm hidden md:inline-flex" onClick={toggleLanguage}><Globe className="me-1 h-4 w-4" />{language === 'en' ? t.arabic : t.english}</Button>
@@ -529,4 +548,3 @@ export function Header() {
     </header>
   );
 }
-
