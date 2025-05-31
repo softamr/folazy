@@ -126,7 +126,7 @@ export default function LocationManagementPage() {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedCountries: LocationCountry[] = [];
       querySnapshot.forEach((docSnapshot) => {
-        // docSnapshot.id is now the slug (e.g., "egypt")
+        // docSnapshot.id is the slug (e.g., "egypt")
         fetchedCountries.push({ id: docSnapshot.id, ...docSnapshot.data() } as LocationCountry);
       });
       setCountries(fetchedCountries.sort((a, b) => a.name.localeCompare(b.name)));
@@ -153,10 +153,9 @@ export default function LocationManagementPage() {
         return;
     }
 
-    // The document ID will be countrySlug. 'id' field in data is not needed.
     const countryDocumentData: Omit<LocationCountry, 'id'> = {
         name: newCountryName.trim(),
-        governorates: []
+        governorates: [] // Initialize with empty governorates array
     };
 
     try {
@@ -451,7 +450,7 @@ export default function LocationManagementPage() {
                                         <Button variant="outline" size="xs" onClick={(e) => { e.stopPropagation(); setShowDistrictFormFor({countryId: country.id, governorateId: gov.id}); setNewDistrictName('');}} disabled={isSubmitting}>
                                             <PlusCircle className="h-3 w-3 me-1"/> {t.addDistrictButton}
                                         </Button>
-                                        <Button variant="ghost" size="icon_xs" onClick={(e) => { e.stopPropagation(); handleDeleteGovernorate(country.id, gov);}} disabled={isSubmitting} className="text-red-500 hover:text-red-700">
+                                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteGovernorate(country.id, gov);}} disabled={isSubmitting} className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/50">
                                             <Trash2 className="h-3 w-3" /> <span className="sr-only">{t.deleteButtonSr}</span>
                                         </Button>
                                     </div>
@@ -470,7 +469,7 @@ export default function LocationManagementPage() {
                                                         <Button size="sm" onClick={() => handleAddDistrict(country.id, gov.id)} disabled={isSubmitting || !newDistrictName.trim()} className="flex-grow">
                                                         {isSubmitting ? <Loader2 className="me-2 h-3 w-3 animate-spin" /> : <PlusCircle className="me-2 h-3 w-3" />} {t.addButton}
                                                         </Button>
-                                                        <Button variant="ghost" size="icon_xs" onClick={() => setShowDistrictFormFor(null)} disabled={isSubmitting}><X className="h-3 w-3"/></Button>
+                                                        <Button variant="ghost" size="icon" onClick={() => setShowDistrictFormFor(null)} disabled={isSubmitting}><X className="h-3 w-3"/></Button>
                                                     </div>
                                                 </div>
                                             </Card>
@@ -481,7 +480,7 @@ export default function LocationManagementPage() {
                                                 {gov.districts.map(dist => (
                                                     <div key={dist.id} className="flex items-center justify-between p-1.5 rounded-md hover:bg-muted/20 text-sm">
                                                         <span>{dist.name} <span className="text-xs text-muted-foreground">({dist.id})</span></span>
-                                                        <Button variant="ghost" size="icon_xs" onClick={(e) => { e.stopPropagation(); handleDeleteDistrict(country.id, gov.id, dist);}} disabled={isSubmitting} className="text-red-500 hover:text-red-700">
+                                                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDeleteDistrict(country.id, gov.id, dist);}} disabled={isSubmitting} className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/50">
                                                             <Trash2 className="h-3 w-3" /> <span className="sr-only">{t.deleteButtonSr}</span>
                                                         </Button>
                                                     </div>
@@ -510,3 +509,4 @@ export default function LocationManagementPage() {
   );
 }
 
+    
