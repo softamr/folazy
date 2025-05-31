@@ -174,8 +174,8 @@ export function PopularCategories() {
                   <CardHeader className="items-center pt-4 pb-2">
                     {/* Icon was here, removed as per request */}
                     <CardTitle className="text-base font-medium text-center text-foreground group-hover:text-primary">
-                      <Link href={categoryHref} className="focus:outline-none focus:ring-2 focus:ring-ring rounded">
-                        <span className="absolute inset-0" aria-hidden="true" />
+                      <Link href={categoryHref} className="focus:outline-none focus:ring-2 focus:ring-ring rounded relative z-10">
+                        {/* Removed: <span className="absolute inset-0" aria-hidden="true" /> */}
                         {translatedCategoryName}
                       </Link>
                     </CardTitle>
@@ -208,3 +208,4 @@ export function PopularCategories() {
     </section>
   );
 }
+
