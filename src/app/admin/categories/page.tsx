@@ -279,7 +279,7 @@ export default function CategoryManagementPage() {
 
   const handleMoveCategory = async (currentIndex: number, direction: 'up' | 'down') => {
     setIsSubmitting(true);
-    const newCategories = [...categories];
+    const newCategories = [...categories]; // `categories` is already sorted by `useEffect`
     const categoryToMove = newCategories[currentIndex];
     let otherCategoryIndex = -1;
 
@@ -296,26 +296,33 @@ export default function CategoryManagementPage() {
 
     const otherCategory = newCategories[otherCategoryIndex];
 
-    // Swap order values
-    const tempOrder = categoryToMove.order;
-    categoryToMove.order = otherCategory.order;
-    otherCategory.order = tempOrder;
+    // Determine the order values for the update.
+    // If a category's order is undefined, use its current index in the sorted list
+    // as a basis for its numerical order. This ensures numeric values are written to Firestore.
+    const orderForCatToMove = categoryToMove.order === undefined ? currentIndex : categoryToMove.order;
+    const orderForOtherCat = otherCategory.order === undefined ? otherCategoryIndex : otherCategory.order;
+    
+    // These are the final values that will be written to Firestore documents.
+    // Category being moved takes the order of the category it's swapping with.
+    const finalOrderForMovedCat = orderForOtherCat;
+    // The other category takes the (potentially newly assigned) order of the category that was moved.
+    const finalOrderForOtherCat = orderForCatToMove;
 
     try {
       const batch = writeBatch(db);
       const docRefMove = doc(db, 'categories', categoryToMove.id);
       const docRefOther = doc(db, 'categories', otherCategory.id);
-      batch.update(docRefMove, { order: categoryToMove.order });
-      batch.update(docRefOther, { order: otherCategory.order });
+      
+      batch.update(docRefMove, { order: finalOrderForMovedCat });
+      batch.update(docRefOther, { order: finalOrderForOtherCat });
+      
       await batch.commit();
       toast({ title: t.successTitle, description: t.categoryOrderUpdated });
       // The onSnapshot listener will automatically update the local 'categories' state and re-sort.
     } catch (error) {
       console.error("Error updating category order: ", error);
       toast({ title: t.errorTitle, description: t.couldNotUpdateOrder, variant: "destructive" });
-      // Revert local changes if Firestore update fails (though onSnapshot would eventually correct it)
-      categoryToMove.order = otherCategory.order; // Original value of categoryToMove.order
-      otherCategory.order = tempOrder; // Original value of otherCategory.order
+      // No need to manually revert local state, onSnapshot will handle it.
     } finally {
       setIsSubmitting(false);
     }
