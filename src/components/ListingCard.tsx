@@ -3,7 +3,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Listing } from '@/lib/types';
+import type { Listing, ListingCategoryInfo } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,9 +31,78 @@ export function ListingCard({ listing }: ListingCardProps) {
   const { language } = useLanguage();
   const t = translations[language];
 
-  const categoryPath = listing.subcategory 
-    ? `${listing.category.name} / ${listing.subcategory.name}` 
-    : listing.category.name;
+  const getTranslatedName = (item: ListingCategoryInfo | undefined): string => {
+    if (!item) return '';
+    if (language === 'ar') {
+      const arNames: Record<string, string> = {
+        // Main Categories - IDs first, then English names as fallback
+        'electronics': 'إلكترونيات',
+        'vehicles': 'مركبات',
+        'properties': 'عقارات',
+        'jobs': 'وظائف',
+        'furniture & home decor': 'أثاث وديكور منزلي',
+        'fashion & beauty': 'أزياء وجمال',
+        'pets': 'حيوانات أليفة',
+        'kids & babies': 'مستلزمات أطفال ورضع',
+        'books, sports & hobbies': 'كتب، رياضة وهوايات',
+        'services': 'خدمات',
+        'business & industrial': 'أعمال وصناعة',
+
+        // Subcategories - IDs first, then English names as fallback
+        'mobiles': 'هواتف محمولة',
+        'mobile phones': 'هواتف محمولة',
+        'tablets': 'أجهزة لوحية',
+        'laptops': 'لابتوبات',
+        'cameras': 'كاميرات',
+        'phones & tablets': 'الهواتف والأجهزة اللوحية',
+        'cars': 'سيارات',
+        'motorcycles': 'دراجات نارية',
+        'auto accessories': 'اكسسوارات سيارات',
+        'heavy vehicles': 'مركبات ثقيلة',
+        'apartments for rent': 'شقق للإيجار',
+        'villas for sale': 'فلل للبيع',
+        'commercial for rent': 'تجاري للإيجار',
+        'properties for rent': 'عقارات للإيجار',
+        'properties for sale': 'عقارات للبيع',
+        'accounting': 'محاسبة',
+        'sales': 'مبيعات',
+        'it': 'تكنولوجيا المعلومات',
+        'sofas': 'أرائك',
+        'beds': 'أسرة',
+        'home accessories': 'اكسسوارات منزلية',
+        'clothing': 'ملابس',
+        'shoes': 'أحذية',
+        'jewelry': 'مجوهرات',
+        'dogs': 'كلاب',
+        'cats': 'قطط',
+        'birds': 'طيور',
+        'toys': 'ألعاب',
+        'strollers': 'عربات أطفال',
+        'baby gear': 'مستلزمات أطفال',
+        'books': 'كتب',
+        'sports equipment': 'معدات رياضية',
+        'musical instruments': 'آلات موسيقية',
+        'cleaning': 'تنظيف',
+        'tutoring': 'دروس خصوصية',
+        'repair': 'تصليح',
+        'office equipment': 'معدات مكتبية',
+        'heavy machinery': 'معدات ثقيلة',
+        'supplies': 'لوازم أعمال',
+        'unknown': 'غير معروف', // For fallback
+      };
+      const itemIdLower = item.id.toLowerCase();
+      const itemNameLower = item.name.toLowerCase();
+      return arNames[itemIdLower] || arNames[itemNameLower] || item.name;
+    }
+    return item.name;
+  };
+
+  const translatedCategoryName = getTranslatedName(listing.category);
+  const translatedSubcategoryName = listing.subcategory ? getTranslatedName(listing.subcategory) : '';
+
+  const categoryPath = translatedSubcategoryName
+    ? `${translatedCategoryName} / ${translatedSubcategoryName}`
+    : translatedCategoryName;
 
   return (
     <Card className="flex flex-col h-full overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200 rounded-md">
@@ -61,7 +130,7 @@ export function ListingCard({ listing }: ListingCardProps) {
           </CardTitle>
         </Link>
         <p className="text-lg font-bold text-primary mt-1 mb-1.5">
-          {listing.price.toLocaleString()} <span className="text-sm font-normal">{t.currencySymbol}</span>
+          {listing.price.toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US')} <span className="text-sm font-normal">{t.currencySymbol}</span>
         </p>
         <div className="text-xs text-muted-foreground space-y-0.5">
           <div className="flex items-center">
