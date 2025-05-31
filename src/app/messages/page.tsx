@@ -13,10 +13,10 @@ import type { Conversation, Message as MessageType, User as UserType, Listing } 
 import { Send, ArrowLeft, Paperclip, Smile, MessageSquare as MessageSquareIcon, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/hooks/useLanguage';
-import { auth, db } from '@/lib/firebase'; // Added Firebase imports
-import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'; // Added Firebase imports
-import { doc, getDoc } from 'firebase/firestore'; // Added Firebase imports
-import { useToast } from '@/hooks/use-toast'; // Added useToast
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 const translations = {
   en: {
@@ -41,6 +41,9 @@ const translations = {
     unknownUser: "Unknown User",
     errorTitle: "Error",
     failedToLoadProfile: "Failed to load your profile for messaging.",
+    chatWithPlaceholder: (name: string) => `Chat with ${name}`,
+    regardingListingPlaceholder: (title: string) => `Regarding: ${title}`,
+    startTyping: "Start typing to chat...",
   },
   ar: {
     loadingMessages: "جار تحميل الرسائل...",
@@ -64,6 +67,9 @@ const translations = {
     unknownUser: "مستخدم غير معروف",
     errorTitle: "خطأ",
     failedToLoadProfile: "فشل تحميل ملفك الشخصي للرسائل.",
+    chatWithPlaceholder: (name: string) => `محادثة مع ${name}`,
+    regardingListingPlaceholder: (title: string) => `بخصوص: ${title}`,
+    startTyping: "ابدأ الكتابة للدردشة...",
   }
 };
 
@@ -78,16 +84,17 @@ export default function MessagesPage() {
   const listingIdParam = searchParams.get('listingId');
   const recipientIdParam = searchParams.get('recipientId');
 
-  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
-  const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null); // For Firebase auth object
+  const [currentUser, setCurrentUser] = useState<UserType | undefined>(undefined); // undefined means auth state not yet determined
+  const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>(placeholderConversations);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Global loading for the page
   
   useEffect(() => {
-    setIsLoading(true);
+    // This effect handles Firebase authentication state
+    setIsLoading(true); // Start loading when checking auth
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setFirebaseAuthUser(user);
@@ -97,7 +104,6 @@ export default function MessagesPage() {
           if (userDocSnap.exists()) {
             setCurrentUser({ id: userDocSnap.id, ...userDocSnap.data() } as UserType);
           } else {
-            // Fallback if user doc doesn't exist, create a minimal UserType object
             setCurrentUser({
               id: user.uid,
               name: user.displayName || user.email || "User",
@@ -111,80 +117,104 @@ export default function MessagesPage() {
         } catch (error) {
           console.error("Error fetching user document for messages:", error);
           toast({ title: t.errorTitle, description: t.failedToLoadProfile, variant: "destructive" });
-          setCurrentUser(null);
+          setCurrentUser(null); // Explicitly null on error
         }
       } else {
         setFirebaseAuthUser(null);
-        setCurrentUser(null);
+        setCurrentUser(null); // Explicitly null if no user
       }
-      // Delay setting isLoading to false to allow conversation logic to run after currentUser is set
-      // setIsLoading(false); // This will be set to false in the next useEffect
+      // setIsLoading(false); // Auth check done, conversation logic will handle final isLoading
     });
     return () => unsubscribeAuth();
   }, [toast, t]);
 
 
   useEffect(() => {
-    // This effect runs after the auth check and currentUser state update.
-    if (isLoading && currentUser === undefined) { // Still waiting for initial auth state
-        return;
+    // This effect handles conversation selection and creation based on URL params and currentUser
+    // It should only run meaningfully after currentUser state is determined.
+
+    if (currentUser === undefined) { // Auth state still being determined
+      // setIsLoading(true); // already true from auth effect or initial state
+      return;
     }
 
-    // If isLoading is true but currentUser is now determined (null or UserType),
-    // then we can proceed with conversation logic and then set isLoading to false.
-    
-    let activeConversation: Conversation | undefined;
+    if (currentUser === null) { // User is not logged in
+      setIsLoading(false); // Stop loading, UI will show login prompt
+      setSelectedConversation(null); // Ensure no conversation is selected
+      return;
+    }
+
+    // At this point, currentUser is a UserType object (user is logged in)
+    let targetConversation: Conversation | null = null;
 
     if (conversationIdParam) {
-      activeConversation = conversations.find(c => c.id === conversationIdParam);
+      targetConversation = conversations.find(c => c.id === conversationIdParam) || null;
+      // TODO: If not found in local state, fetch from Firestore if this page should support deep-linking to any convo
     } else if (listingIdParam && recipientIdParam && currentUser) {
-      // Check if a conversation already exists
-      activeConversation = conversations.find(c => 
+      const existingConvo = conversations.find(c => 
         c.listingId === listingIdParam && 
         c.participants.some(p => p.id === recipientIdParam) &&
         c.participants.some(p => p.id === currentUser.id)
       );
-      
-      if (!activeConversation) { // If not, create a new one (still using placeholder data for other users/listings)
-        const recipient = placeholderUsers.find(u => u.id === recipientIdParam);
-        const listing = placeholderListings.find(l => l.id === listingIdParam);
-        if (recipient && listing && currentUser) {
-           const newConvoId = `convo${conversations.length + 1}`;
-           activeConversation = {
-             id: newConvoId,
-             listingId: listingIdParam,
-             listingTitle: listing.title,
-             participants: [currentUser, recipient], // Current user is now real
-             lastMessage: { 
-                id: 'temp', 
-                conversationId: newConvoId,
-                senderId: currentUser.id, 
-                receiverId: recipient.id, 
-                text: `${t.reListingPrefix} ${listing.title}...`, 
-                timestamp: new Date().toISOString(),
-                isRead: false,
-            },
-             unreadCount: 0,
-           };
-           setConversations(prev => [...prev, activeConversation!]);
-           // Note: placeholderMessagesForConversation would need update for persistence
-           // For now, just setting messages for this new active convo locally
-           placeholderMessagesForConversation[newConvoId] = [activeConversation!.lastMessage]; 
+
+      if (existingConvo) {
+        targetConversation = existingConvo;
+      } else {
+        // Create a shell for a new conversation to "open the form"
+        const tempRecipient: UserType = { 
+            id: recipientIdParam, 
+            name: t.unknownUser, // Will be placeholder, real data fetch is a TODO
+            email: '', avatarUrl: '', joinDate: new Date().toISOString(), isAdmin: false 
+        };
+        // Fetching actual listing title is a TODO, using placeholder for now
+        const tempListingTitle = `${t.reListingPrefix} ${listingIdParam.substring(0,10)}...`; 
+        const newConvoId = `new_${currentUser.id}_${recipientIdParam}_${listingIdParam}`; // Unique temp ID
+
+        targetConversation = {
+            id: newConvoId,
+            listingId: listingIdParam,
+            listingTitle: tempListingTitle,
+            participants: [currentUser, tempRecipient],
+            lastMessage: { 
+               id: `system_init_${newConvoId}`, 
+               conversationId: newConvoId,
+               senderId: 'system', // Indicates a system-generated message or placeholder
+               receiverId: currentUser.id, 
+               text: t.startTyping,
+               timestamp: new Date().toISOString(),
+               isRead: true, // No actual message from other user yet
+           },
+            unreadCount: 0,
+        };
+        
+        // Add this new shell conversation to the main list if it's not already there by ID
+        if (!conversations.find(c => c.id === targetConversation!.id)) {
+            setConversations(prevConvos => [targetConversation!, ...prevConvos.filter(c => c.id !== targetConversation!.id)]);
+        }
+        // Ensure messages for this new convo are initialized (likely empty or with a system message)
+        if (!placeholderMessagesForConversation[targetConversation.id]) {
+            placeholderMessagesForConversation[targetConversation.id] = targetConversation.lastMessage.senderId === 'system' ? [targetConversation.lastMessage] : [];
         }
       }
     }
 
-    if (activeConversation) {
-      setSelectedConversation(activeConversation);
-      setMessages(placeholderMessagesForConversation[activeConversation.id] || []);
-    } else if (conversations.length > 0 && !conversationIdParam && !listingIdParam) {
-      // Default to first conversation if no params and conversations exist
-      // setSelectedConversation(conversations[0]);
-      // setMessages(placeholderMessagesForConversation[conversations[0].id] || []);
+    if (targetConversation) {
+      setSelectedConversation(targetConversation);
+      setMessages(placeholderMessagesForConversation[targetConversation.id] || []);
+    } else if (!conversationIdParam && !listingIdParam && !recipientIdParam) {
+      // If navigating to /messages without specific params, and a convo was previously selected,
+      // clear it to show the "Select a conversation" prompt.
+      // However, if user just sent a message and URL didn't change, keep it selected.
+      // This needs careful handling based on router.push behavior.
+      // For now, if no params to define a convo, we don't auto-select or clear explicitly here.
+      // Let the UI show "Select conversation" if selectedConversation is null.
     }
-    setIsLoading(false); // Auth check and initial conversation logic is done
+    
+    setIsLoading(false); // All conversation setup logic for this render is done
 
-  }, [conversationIdParam, listingIdParam, recipientIdParam, currentUser, conversations, t.reListingPrefix, isLoading]);
+  }, [conversationIdParam, listingIdParam, recipientIdParam, currentUser, conversations, t]);
+  // Note: `conversations` is a dependency. Adding a new shell conversation to it will trigger this effect again.
+  // This is generally okay as it should stabilize.
 
   const handleSendMessage = () => {
     if (!newMessage.trim() || !selectedConversation || !currentUser) return;
@@ -203,11 +233,10 @@ export default function MessagesPage() {
     setMessages(prev => [...prev, msg]);
     
     const updatedConvo = { ...selectedConversation, lastMessage: msg };
-    setSelectedConversation(updatedConvo);
+    setSelectedConversation(updatedConvo); // Keep current convo selected
     setConversations(prevConvos => prevConvos.map(c => c.id === updatedConvo.id ? updatedConvo : c));
     
-    // This part still relies on placeholderMessagesForConversation which isn't ideal for persistence
-    // but keeps the immediate display working.
+    // Update placeholder global store (for demo persistence across selections)
     const currentMessagesForThisConvo = placeholderMessagesForConversation[selectedConversation.id] || [];
     placeholderMessagesForConversation[selectedConversation.id] = [...currentMessagesForThisConvo, msg];
 
@@ -216,11 +245,11 @@ export default function MessagesPage() {
   
   const getOtherParticipant = (convo: Conversation | null): UserType | undefined => {
     if (!convo || !currentUser) return undefined;
-    return convo.participants.find(p => p.id !== currentUser.id);
+    return convo.participants.find(p => p.id !== currentUser?.id); // currentUser could be undefined during initial renders
   };
 
 
-  if (isLoading) { // Unified loading state
+  if (isLoading || currentUser === undefined) { 
      return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-15rem)] py-12">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -229,7 +258,7 @@ export default function MessagesPage() {
      );
   }
   
-  if (!currentUser) { // Check after loading is complete
+  if (!currentUser) { // Check after loading and currentUser determination is complete
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center border rounded-lg shadow-lg min-h-[calc(100vh-15rem)]">
         <MessageSquareIcon className="h-16 w-16 mb-4 text-muted-foreground" />
@@ -243,14 +272,15 @@ export default function MessagesPage() {
   }
   
   return (
-    <div className="flex flex-col md:flex-row h-[calc(100vh-10rem)] border rounded-lg shadow-lg overflow-hidden">
-      <Card className={`w-full md:w-1/3 ${language === 'ar' ? 'border-l' : 'border-r'} rounded-none ${language === 'ar' ? 'md:rounded-r-lg md:rounded-l-none' : 'md:rounded-l-lg md:rounded-r-none'}`}>
+    <div className={`flex flex-col md:flex-row h-[calc(100vh-10rem)] border rounded-lg shadow-lg overflow-hidden ${language === 'ar' ? 'md:flex-row-reverse' : ''}`}>
+      {/* Sidebar for conversations */}
+      <Card className={`w-full md:w-1/3 ${selectedConversation && 'hidden md:flex'} md:flex flex-col rounded-none ${language === 'ar' ? 'md:border-l md:rounded-r-lg md:rounded-l-none' : 'md:border-r md:rounded-l-lg md:rounded-r-none'}`}>
         <CardHeader>
           <CardTitle>{t.yourChatsTitle}</CardTitle>
           <CardDescription>{t.selectConversationDesc}</CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
-          <ScrollArea className="h-[calc(100vh-18rem)]">
+        <CardContent className="p-0 flex-grow">
+          <ScrollArea className="h-[calc(100vh-18rem)] md:h-full">
             {conversations.length === 0 && (
               <p className="p-4 text-muted-foreground text-center">{t.noConversationsYet}</p>
             )}
@@ -260,13 +290,15 @@ export default function MessagesPage() {
                 variant="ghost"
                 className={`w-full justify-start p-3 h-auto rounded-none border-b ${selectedConversation?.id === convo.id ? 'bg-muted' : ''}`}
                 onClick={() => {
-                  // Using router.push to update URL which will trigger useEffect for conversation loading
-                  router.push(`/messages?conversationId=${convo.id}`); 
+                  // setSelectedConversation(null); // Clear selection first if it helps trigger UI update
+                  // setTimeout(() => { // Delay to ensure UI can react if needed
+                    router.push(`/messages?conversationId=${convo.id}`);
+                  // }, 0);
                 }}
               >
                 <Avatar className={`h-10 w-10 ${language === 'ar' ? 'ms-3' : 'me-3'}`}>
                   <AvatarImage src={getOtherParticipant(convo)?.avatarUrl || `https://placehold.co/100x100.png`} alt={getOtherParticipant(convo)?.name} data-ai-hint="avatar person" />
-                  <AvatarFallback>{getOtherParticipant(convo)?.name.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                  <AvatarFallback>{getOtherParticipant(convo)?.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                 </Avatar>
                 <div className={`flex-grow ${language === 'ar' ? 'text-right' : 'text-left'}`}>
                   <p className="font-semibold truncate">{getOtherParticipant(convo)?.name || t.unknownUser}</p>
@@ -288,7 +320,8 @@ export default function MessagesPage() {
         </CardContent>
       </Card>
 
-      <div className={`flex-grow flex flex-col bg-background ${language === 'ar' ? 'md:rounded-l-lg' : 'md:rounded-r-lg'}`}>
+      {/* Main chat area */}
+      <div className={`flex-grow flex-col bg-background ${!selectedConversation && 'hidden md:flex'} ${selectedConversation && 'flex'} ${language === 'ar' ? 'md:rounded-l-lg' : 'md:rounded-r-lg'}`}>
         {!selectedConversation ? (
           <div className="flex-grow flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
             <MessageSquareIcon className="h-16 w-16 mb-4" />
@@ -301,20 +334,22 @@ export default function MessagesPage() {
         ) : (
           <>
             <CardHeader className="border-b flex-row items-center justify-between p-4">
-              <div>
-                <CardTitle>{getOtherParticipant(selectedConversation)?.name || 'Chat'}</CardTitle>
-                {selectedConversation.listingTitle && (
-                  <CardDescription className="truncate">
-                    {t.regardingLabel} <Link href={`/listings/${selectedConversation.listingId}`} className="text-primary hover:underline">{selectedConversation.listingTitle}</Link>
-                  </CardDescription>
-                )}
+              <div className="flex items-center">
+                 <Button variant="ghost" size="icon" onClick={() => {
+                    setSelectedConversation(null); // This will hide the chat area on mobile
+                    // router.push('/messages'); // Optionally clear query params
+                  }} className="md:hidden me-2">
+                   <ArrowLeft className="h-5 w-5"/>
+                 </Button>
+                 <div>
+                  <CardTitle>{getOtherParticipant(selectedConversation)?.name || t.chatWithPlaceholder(t.unknownUser)}</CardTitle>
+                  {selectedConversation.listingId && (
+                    <CardDescription className="truncate">
+                      {t.regardingLabel} <Link href={`/listings/${selectedConversation.listingId}`} className="text-primary hover:underline">{selectedConversation.listingTitle || t.regardingListingPlaceholder(selectedConversation.listingId)}</Link>
+                    </CardDescription>
+                  )}
+                 </div>
               </div>
-               <Button variant="ghost" size="icon" onClick={() => {
-                setSelectedConversation(null);
-                router.push('/messages'); // Clear query params by navigating to base messages page
-                }} className="md:hidden">
-                 <ArrowLeft className="h-5 w-5"/>
-               </Button>
             </CardHeader>
             <ScrollArea className="flex-grow p-4 space-y-4">
               {messages.map((msg) => (
@@ -329,7 +364,7 @@ export default function MessagesPage() {
                         : 'bg-muted text-foreground'
                     }`}
                   >
-                    <p className="text-sm">{msg.text}</p>
+                    <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
                     <p className={`text-xs mt-1 ${msg.senderId === currentUser?.id ? (language === 'ar' ? 'text-primary-foreground/70 text-left' : 'text-primary-foreground/70 text-right') : (language === 'ar' ? 'text-muted-foreground/70 text-left' : 'text-muted-foreground/70 text-right')}`}>
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
@@ -351,7 +386,7 @@ export default function MessagesPage() {
                   dir={language === 'ar' ? 'rtl' : 'ltr'}
                 />
                 <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
-                  <Send className="h-5 w-5" />
+                  <Send className={`h-5 w-5 ${language === 'ar' ? 'transform rotate-180' : ''}`} />
                   <span className="sr-only">{t.sendSr}</span>
                 </Button>
               </div>
@@ -362,3 +397,4 @@ export default function MessagesPage() {
     </div>
   );
 }
+
