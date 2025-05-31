@@ -4,10 +4,9 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { placeholderListings, placeholderConversations } from '@/lib/placeholder-data';
 import type { Listing, Conversation, User as UserType } from '@/lib/types';
 import { ListingCard } from '@/components/ListingCard';
-import { User, Settings, ListChecks, LogOut, MessageSquare, Edit3, ShieldCheck, UserCircle as UserCircleIcon, Loader2 } from 'lucide-react';
+import { User, Settings, ListChecks, LogOut, MessageSquare, Edit3, ShieldCheck, UserCircle as UserCircleIcon, Loader2, PackageOpen, CheckCircle, AlertTriangle, Hourglass } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,9 +15,10 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query as firestoreQuery, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/useLanguage';
+import { placeholderConversations } from '@/lib/placeholder-data'; // Keep for messages tab for now
 
 const translations = {
   en: {
@@ -31,11 +31,9 @@ const translations = {
     joinedOnLabel: "Joined on",
     logoutButton: "Logout",
     myListingsTab: "My Listings",
+    myListingsTabDesc: "Manage your active, pending, and rejected listings.",
     messagesTab: "Messages",
     accountSettingsTab: "Account Settings",
-    myActiveListingsTitle: "My Active Listings",
-    myActiveListingsDesc: "View and manage the items you have for sale. (Placeholder data)",
-    noListingsYet: "You haven't posted any listings yet.",
     postNewListingButton: "Post a New Listing",
     yourConversationsTitle: "Your Conversations",
     yourConversationsDesc: "Manage your messages with buyers and sellers. (Placeholder data)",
@@ -66,6 +64,15 @@ const translations = {
     logoutFailedDesc: "Could not log out. Please try again.",
     notImplemented: "(Not implemented)",
     adminSuffix: "(Admin)",
+    approvedListingsTabTitle: "Approved",
+    pendingListingsTabTitle: "Pending",
+    rejectedListingsTabTitle: "Rejected",
+    noApprovedListingsYet: "You have no listings currently approved.",
+    noPendingListingsYet: "You have no listings currently pending review.",
+    noRejectedListingsYet: "You have no rejected listings.",
+    loadingMyListings: "Loading your listings...",
+    errorLoadingMyListings: "Could not load your listings. Please try again.",
+    errorTitle: "Error",
   },
   ar: {
     loadingProfile: "جار تحميل الملف الشخصي...",
@@ -77,11 +84,9 @@ const translations = {
     joinedOnLabel: "انضم في",
     logoutButton: "تسجيل الخروج",
     myListingsTab: "إعلاناتي",
+    myListingsTabDesc: "إدارة إعلاناتك النشطة، والمعلقة، والمرفوضة.",
     messagesTab: "الرسائل",
     accountSettingsTab: "إعدادات الحساب",
-    myActiveListingsTitle: "إعلاناتي النشطة",
-    myActiveListingsDesc: "عرض وإدارة العناصر التي لديك للبيع. (بيانات مؤقتة)",
-    noListingsYet: "لم تقم بنشر أي إعلانات بعد.",
     postNewListingButton: "نشر إعلان جديد",
     yourConversationsTitle: "محادثاتك",
     yourConversationsDesc: "إدارة رسائلك مع المشترين والبائعين. (بيانات مؤقتة)",
@@ -112,6 +117,15 @@ const translations = {
     logoutFailedDesc: "لم نتمكن من تسجيل الخروج. يرجى المحاولة مرة أخرى.",
     notImplemented: "(غير مطبق)",
     adminSuffix: "(مشرف)",
+    approvedListingsTabTitle: "المعتمدة",
+    pendingListingsTabTitle: "المعلقة",
+    rejectedListingsTabTitle: "المرفوضة",
+    noApprovedListingsYet: "ليس لديك إعلانات معتمدة حاليًا.",
+    noPendingListingsYet: "ليس لديك إعلانات معلقة للمراجعة حاليًا.",
+    noRejectedListingsYet: "ليس لديك إعلانات مرفوضة حاليًا.",
+    loadingMyListings: "جار تحميل إعلاناتك...",
+    errorLoadingMyListings: "لم نتمكن من تحميل إعلاناتك. يرجى المحاولة مرة أخرى.",
+    errorTitle: "خطأ",
   }
 };
 
@@ -125,9 +139,14 @@ export default function ProfilePage() {
   const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [approvedListings, setApprovedListings] = useState<Listing[]>([]);
+  const [pendingListings, setPendingListings] = useState<Listing[]>([]);
+  const [rejectedListings, setRejectedListings] = useState<Listing[]>([]);
+  const [isLoadingListings, setIsLoadingListings] = useState(true);
+
   useEffect(() => {
     setIsLoading(true);
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setFirebaseAuthUser(user);
         try {
@@ -152,10 +171,51 @@ export default function ProfilePage() {
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, [router, toast, t]);
 
-  const userListings = currentUser ? placeholderListings.filter(l => l.seller.id === currentUser.id) : [];
+  useEffect(() => {
+    if (!currentUser?.id) {
+      setIsLoadingListings(false); // Set to false if no user to prevent indefinite loading
+      return;
+    }
+
+    setIsLoadingListings(true);
+    const q = firestoreQuery(collection(db, 'listings'), where('seller.id', '==', currentUser.id));
+    
+    const unsubscribeListings = onSnapshot(q, (querySnapshot) => {
+      const allUserListings: Listing[] = [];
+      querySnapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        let postedDate = data.postedDate;
+        if (postedDate instanceof Timestamp) {
+          postedDate = postedDate.toDate().toISOString();
+        }
+        allUserListings.push({ 
+            ...data, 
+            id: docSnapshot.id, 
+            postedDate,
+            // Ensure category and seller have fallback defaults if potentially missing
+            category: data.category || { id: 'unknown', name: 'Unknown' }, 
+            seller: data.seller || { id: currentUser.id, name: currentUser.name, email: currentUser.email, joinDate: currentUser.joinDate, isAdmin: currentUser.isAdmin },
+        } as Listing);
+      });
+
+      setApprovedListings(allUserListings.filter(l => l.status === 'approved'));
+      setPendingListings(allUserListings.filter(l => l.status === 'pending'));
+      setRejectedListings(allUserListings.filter(l => l.status === 'rejected'));
+      setIsLoadingListings(false);
+    }, (error) => {
+      console.error("Error fetching user listings:", error);
+      toast({ title: t.errorTitle, description: t.errorLoadingMyListings, variant: "destructive" });
+      setIsLoadingListings(false);
+    });
+
+    return () => unsubscribeListings();
+  }, [currentUser?.id, toast, t]);
+
+
+  // Placeholder for messages tab for now
   const userConversations = currentUser ? placeholderConversations.filter(
     convo => convo.participants.some(p => p.id === currentUser!.id)
   ) : [];
@@ -200,6 +260,25 @@ export default function ProfilePage() {
   const displayAvatar = currentUser?.avatarUrl || firebaseAuthUser?.photoURL || `https://placehold.co/150x150.png`;
   const joinDate = currentUser?.joinDate || firebaseAuthUser?.metadata.creationTime || new Date().toISOString();
 
+  const renderListingGrid = (listings: Listing[], emptyMessage: string) => {
+    if (listings.length === 0) {
+      return (
+        <div className="py-10 text-center">
+          <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+          <p className="text-muted-foreground">{emptyMessage}</p>
+        </div>
+      );
+    }
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {listings.map((listing) => (
+          <ListingCard key={listing.id} listing={listing} />
+        ))}
+      </div>
+    );
+  };
+
+
   return (
     <div className="space-y-8">
       <Card className="shadow-lg">
@@ -234,21 +313,41 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center text-xl">
-                {t.myActiveListingsTitle}
+                {t.myListingsTab}
               </CardTitle>
-              <CardDescription>{t.myActiveListingsDesc}</CardDescription>
+              <CardDescription>{t.myListingsTabDesc}</CardDescription>
             </CardHeader>
             <CardContent>
-              {userListings.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {userListings.map((listing) => (
-                    <ListingCard key={listing.id} listing={listing} />
-                  ))}
+              {isLoadingListings ? (
+                 <div className="flex flex-col items-center justify-center py-12">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
+                    <p className="text-muted-foreground">{t.loadingMyListings}</p>
                 </div>
               ) : (
-                <p className="text-muted-foreground">{t.noListingsYet}</p>
+                <Tabs defaultValue="approved" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3 mb-6">
+                    <TabsTrigger value="approved" className="gap-1">
+                        <CheckCircle className="h-4 w-4 text-green-500" />{t.approvedListingsTabTitle} <span className="text-xs text-muted-foreground">({approvedListings.length})</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="pending" className="gap-1">
+                        <Hourglass className="h-4 w-4 text-yellow-500" />{t.pendingListingsTabTitle} <span className="text-xs text-muted-foreground">({pendingListings.length})</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="rejected" className="gap-1">
+                        <AlertTriangle className="h-4 w-4 text-red-500" />{t.rejectedListingsTabTitle} <span className="text-xs text-muted-foreground">({rejectedListings.length})</span>
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="approved">
+                    {renderListingGrid(approvedListings, t.noApprovedListingsYet)}
+                  </TabsContent>
+                  <TabsContent value="pending">
+                    {renderListingGrid(pendingListings, t.noPendingListingsYet)}
+                  </TabsContent>
+                  <TabsContent value="rejected">
+                    {renderListingGrid(rejectedListings, t.noRejectedListingsYet)}
+                  </TabsContent>
+                </Tabs>
               )}
-              <Button asChild className="mt-6 w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+              <Button asChild className="mt-8 w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
                 <Link href="/listings/new">{t.postNewListingButton}</Link>
               </Button>
             </CardContent>
@@ -349,3 +448,6 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+
+    
