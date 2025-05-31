@@ -48,13 +48,7 @@ export function PopularCategories() {
             'books, sports & hobbies': 'كتب، رياضة وهوايات',
             'services': 'خدمات',
             'business & industrial': 'أعمال وصناعة',
-            'mobile phones': 'هواتف محمولة',
-            'tablets': 'أجهزة لوحية',
-            'cars': 'سيارات',
-            'motorcycles': 'دراجات نارية',
-            'apartments for rent': 'شقق للإيجار',
-            'villas for sale': 'فلل للبيع',
-            'phones & tablets': 'الهواتف والأجهزة اللوحية',
+            // Ensure main category IDs/names that might appear here are translated
         };
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
@@ -74,8 +68,9 @@ export function PopularCategories() {
             'motorcycles': 'دراجات نارية',
             'apartments for rent': 'شقق للإيجار',
             'villas for sale': 'فلل للبيع',
-            'laptops': 'كمبيوتر محمول', // Example additional subcategory
-            'cameras': 'كاميرات',     // Example additional subcategory
+            'laptops': 'كمبيوتر محمول', 
+            'cameras': 'كاميرات',
+            'phones & tablets': 'الهواتف والأجهزة اللوحية', // Added translation
         };
         const subcategoryIdLower = subcategory.id.toLowerCase();
         const subcategoryNameLower = subcategory.name.toLowerCase();
@@ -198,3 +193,4 @@ export function PopularCategories() {
     </section>
   );
 }
+
