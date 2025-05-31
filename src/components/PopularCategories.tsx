@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { Category } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useEffect, useState } from 'react';
-import { collection, getDocs, limit, query as firestoreQuery } from 'firebase/firestore';
+import { collection, getDocs, limit, query as firestoreQuery, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as Icons from 'lucide-react';
@@ -25,15 +25,15 @@ const translations = {
   }
 };
 
+const MAX_DISPLAY_CATEGORIES = 6;
+const PROPERTIES_CATEGORY_ID = 'properties';
+
 export function PopularCategories() {
   const { language } = useLanguage();
   const t = translations[language];
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // This function attempts to get a translated category name.
-  // For a full solution, category names should ideally be stored in the DB with translations.
-  // This is a simplified version similar to what's in Header.tsx
   const getCategoryName = (category: Category): string => {
     if (language === 'ar') {
         const arNames: Record<string, string> = {
@@ -48,7 +48,6 @@ export function PopularCategories() {
             'books, sports & hobbies': 'كتب، رياضة وهوايات',
             'services': 'خدمات',
             'business & industrial': 'أعمال وصناعة',
-            // Ensure main category IDs/names that might appear here are translated
         };
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
@@ -90,13 +89,27 @@ export function PopularCategories() {
       setIsLoading(true);
       try {
         const categoriesRef = collection(db, 'categories');
-        const q = firestoreQuery(categoriesRef, limit(6));
+        // Fetch more than needed to increase chance of finding 'properties', then sort/slice.
+        const q = firestoreQuery(categoriesRef, orderBy('name')); // Order by name for consistent fallback
         const querySnapshot = await getDocs(q);
         const fetchedCategories: Category[] = [];
         querySnapshot.forEach((doc) => {
           fetchedCategories.push({ id: doc.id, ...doc.data() } as Category);
         });
-        setCategories(fetchedCategories.sort((a, b) => a.name.localeCompare(b.name)));
+
+        let sortedForDisplay: Category[] = [];
+        const propertiesCategory = fetchedCategories.find(cat => cat.id === PROPERTIES_CATEGORY_ID);
+
+        if (propertiesCategory) {
+          sortedForDisplay.push(propertiesCategory);
+          const otherCategories = fetchedCategories.filter(cat => cat.id !== PROPERTIES_CATEGORY_ID);
+          sortedForDisplay.push(...otherCategories);
+        } else {
+          sortedForDisplay = fetchedCategories;
+        }
+        
+        setCategories(sortedForDisplay.slice(0, MAX_DISPLAY_CATEGORIES));
+
       } catch (error) {
         console.error("Error fetching popular categories:", error);
       } finally {
@@ -112,7 +125,7 @@ export function PopularCategories() {
         <div className="container mx-auto px-4">
           <h2 className="text-2xl font-semibold mb-8 text-foreground">{t.popularCategoriesTitle}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
-            {Array.from({ length: 6 }).map((_, index) => (
+            {Array.from({ length: MAX_DISPLAY_CATEGORIES }).map((_, index) => (
               <Card key={index} className="h-full flex flex-col">
                 <CardHeader className="items-center pt-4 pb-2">
                   <Skeleton className="h-8 w-8 mb-2 rounded-full" />
@@ -195,4 +208,3 @@ export function PopularCategories() {
     </section>
   );
 }
-
