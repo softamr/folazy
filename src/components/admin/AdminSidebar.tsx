@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, FileText, Settings, ShieldCheck, ListOrdered } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, ShieldCheck, ListOrdered, MapPinned } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons/Logo';
@@ -16,6 +16,7 @@ const translations = {
     userManagement: 'User Management',
     listingManagement: 'Listing Management',
     categoryManagement: 'Category Management',
+    locationManagement: 'Location Management',
     adminSettings: 'Admin Settings', // Kept for completeness if added back
     adminArea: 'Admin',
     exitAdminView: 'Exit Admin View',
@@ -25,6 +26,7 @@ const translations = {
     userManagement: 'إدارة المستخدمين',
     listingManagement: 'إدارة الإعلانات',
     categoryManagement: 'إدارة الفئات',
+    locationManagement: 'إدارة المواقع',
     adminSettings: 'إعدادات المسؤول',
     adminArea: 'المسؤول',
     exitAdminView: 'الخروج من عرض المسؤول',
@@ -41,6 +43,7 @@ export function AdminSidebar() {
     { href: '/admin/users', label: t.userManagement, icon: Users },
     { href: '/admin/listings', label: t.listingManagement, icon: FileText },
     { href: '/admin/categories', label: t.categoryManagement, icon: ListOrdered },
+    { href: '/admin/locations', label: t.locationManagement, icon: MapPinned },
     // { href: '/admin/settings', label: t.adminSettings, icon: Settings },
   ];
 

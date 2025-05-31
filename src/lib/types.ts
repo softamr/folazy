@@ -30,6 +30,25 @@ export type ListingCategoryInfo = {
 
 export type ListingStatus = 'pending' | 'approved' | 'rejected' | 'sold'; // Added 'sold'
 
+// --- START NEW LOCATION TYPES ---
+export interface LocationRef { // For storing on the listing or referencing
+  id: string;
+  name: string;
+}
+
+export interface LocationDistrict extends LocationRef {
+  // any district-specific fields if needed in future
+}
+
+export interface LocationGovernorate extends LocationRef {
+  districts?: LocationDistrict[];
+}
+
+export interface LocationCountry extends LocationRef {
+  governorates?: LocationGovernorate[];
+}
+// --- END NEW LOCATION TYPES ---
+
 export type Listing = {
   id: string;
   title: string;
@@ -37,7 +56,13 @@ export type Listing = {
   price: number;
   category: ListingCategoryInfo; // Use simplified type for stored category
   subcategory?: ListingCategoryInfo; // Use simplified type for stored subcategory
-  location: string;
+  
+  location: string; // This will be deprecated or hold a display string.
+  // New structured location fields:
+  locationCountry?: LocationRef;
+  locationGovernorate?: LocationRef;
+  locationDistrict?: LocationRef;
+
   images: string[]; // URLs of images
   seller: User;
   postedDate: string;
@@ -91,3 +116,4 @@ export type Conversation = {
 export type IconMapping = {
     [key: string]: LucideIconType;
 };
+
