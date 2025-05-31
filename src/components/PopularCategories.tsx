@@ -49,7 +49,7 @@ export function PopularCategories() {
             'books, sports & hobbies': 'كتب، رياضة وهوايات',
             'services': 'خدمات',
             'business & industrial': 'أعمال وصناعة',
-            'businesses & industrial': 'أعمال وصناعة', // Added for plural
+            'businesses & industrial': 'أعمال وصناعة',
         };
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
@@ -74,6 +74,8 @@ export function PopularCategories() {
             'phones & tablets': 'الهواتف والأجهزة اللوحية',
             'properties for rent': 'عقارات للإيجار',
             'properties for sale': 'عقارات للبيع',
+            'agriculture equipment': 'معدات زراعية',
+            'construction equipment': 'معدات بناء',
         };
         const subcategoryIdLower = subcategory.id.toLowerCase();
         const subcategoryNameLower = subcategory.name.toLowerCase();
