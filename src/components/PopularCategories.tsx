@@ -42,7 +42,8 @@ export function PopularCategories() {
             'vehicles': 'مركبات',
             'properties': 'عقارات',
             'jobs': 'وظائف',
-            'furniture & home decor': 'أثاث وديكور',
+            'furniture & home decor': 'أثاث وديكور منزلي',
+            'furniture & decor': 'أثاث وديكور', // Added translation
             'fashion & beauty': 'أزياء وجمال',
             'pets': 'حيوانات أليفة',
             'kids & babies': 'أطفال ورضع',
