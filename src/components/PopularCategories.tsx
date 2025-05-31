@@ -49,6 +49,7 @@ export function PopularCategories() {
             'books, sports & hobbies': 'كتب، رياضة وهوايات',
             'services': 'خدمات',
             'business & industrial': 'أعمال وصناعة',
+            'businesses & industrial': 'أعمال وصناعة', // Added for plural
         };
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
