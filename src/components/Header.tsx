@@ -365,12 +365,12 @@ export function Header() {
     return (
         <DropdownMenu>
         <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-auto px-2 py-1.5 rounded-md flex flex-col items-center space-y-0.5 group">
+            <Button variant="ghost" className="relative h-auto px-2 py-1.5 rounded-md flex flex-col items-center space-y-0.5 group hover:bg-transparent">
             <Avatar className="h-8 w-8">
                 <AvatarImage src={currentUser?.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser?.name || "User"} data-ai-hint="avatar person"/>
                 <AvatarFallback>{currentUser?.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
-            <span className="text-[10px] leading-tight text-muted-foreground group-hover:text-primary">{t.profile}</span>
+            <span className="text-[10px] leading-tight text-muted-foreground group-hover:text-primary group-hover:underline">{t.profile}</span>
             </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
