@@ -43,7 +43,7 @@ export function PopularCategories() {
             'properties': 'عقارات',
             'jobs': 'وظائف',
             'furniture & home decor': 'أثاث وديكور منزلي',
-            'furniture & decor': 'أثاث وديكور', // Added translation
+            'furniture & decor': 'أثاث وديكور',
             'fashion & beauty': 'أزياء وجمال',
             'pets': 'حيوانات أليفة',
             'kids & babies': 'أطفال ورضع',
@@ -69,6 +69,7 @@ export function PopularCategories() {
             'cars': 'سيارات',
             'motorcycles': 'دراجات نارية',
             'apartments for rent': 'شقق للإيجار',
+            'apartments for sale': 'شقق للبيع',
             'villas for sale': 'فلل للبيع',
             'laptops': 'كمبيوتر محمول',
             'cameras': 'كاميرات',
