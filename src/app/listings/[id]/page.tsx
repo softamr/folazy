@@ -12,7 +12,7 @@ import { CalendarDays, DollarSign, MapPin, Tag, UserCircle, MessageSquare, Arrow
 import { RecommendationsSection } from '@/components/RecommendationsSection';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Keep AlertTitle if used
-import { useEffect, useState } from 'react'; // Added for client-side fetching
+import { useEffect, useState, use } from 'react'; // Added for client-side fetching and 'use'
 import { useLanguage } from '@/hooks/useLanguage'; // Added for translation
 
 // Simulate fetching a listing by ID (client-side)
@@ -68,6 +68,9 @@ interface ListingPageProps {
 }
 
 export default function ListingPage({ params }: ListingPageProps) {
+  const resolvedParams = use(params); // Resolve the params promise
+  const { id: listingId } = resolvedParams;
+
   const { language } = useLanguage();
   const t = translations[language];
   const [listing, setListing] = useState<Listing | undefined>(undefined);
@@ -75,7 +78,7 @@ export default function ListingPage({ params }: ListingPageProps) {
 
   useEffect(() => {
     setIsLoading(true);
-    getListingClient(params.id)
+    getListingClient(listingId)
       .then(data => {
         setListing(data);
         setIsLoading(false);
@@ -84,7 +87,7 @@ export default function ListingPage({ params }: ListingPageProps) {
         console.error("Failed to fetch listing:", error);
         setIsLoading(false);
       });
-  }, [params.id]);
+  }, [listingId]);
 
   if (isLoading) {
     return (
@@ -235,3 +238,4 @@ export default function ListingPage({ params }: ListingPageProps) {
     </div>
   );
 }
+
