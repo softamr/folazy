@@ -7,7 +7,7 @@ import type { Listing } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarDays, DollarSign, MapPin, Tag, MessageSquare, ArrowLeft, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
+import { CalendarDays, MapPin, Tag, MessageSquare, ArrowLeft, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 import { RecommendationsSection } from '@/components/RecommendationsSection';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -75,6 +75,7 @@ const translations = {
     joinedDateLabel: "Joined",
     contactSellerButton: "Contact Seller",
     loadingListing: "Loading listing details...",
+    currencySymbol: "EGP",
   },
   ar: {
     backToListings: "العودة إلى الإعلانات",
@@ -90,6 +91,7 @@ const translations = {
     joinedDateLabel: "انضم في",
     contactSellerButton: "اتصل بالبائع",
     loadingListing: "جار تحميل تفاصيل الإعلان...",
+    currencySymbol: "جنيه",
   }
 };
 
@@ -219,8 +221,7 @@ export default function ListingPage({ params: paramsProp }: ListingPageProps) {
           <div className="flex flex-col md:flex-row justify-between md:items-start mb-4">
             <CardTitle className="text-3xl font-bold text-foreground mb-2 md:mb-0">{listing.title}</CardTitle>
             <Badge variant="default" className="text-2xl py-2 px-4 bg-primary text-primary-foreground">
-              <DollarSign className={`h-6 w-6 ${language === 'ar' ? 'ms-2' : 'me-2'}`} />
-              {listing.price.toLocaleString()}
+              {listing.price.toLocaleString()} <span className={`text-lg font-normal ${language === 'ar' ? 'me-1' : 'ms-1'}`}>{t.currencySymbol}</span>
             </Badge>
           </div>
 
@@ -250,7 +251,7 @@ export default function ListingPage({ params: paramsProp }: ListingPageProps) {
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <Avatar className="h-16 w-16 border-2 border-primary">
-                <AvatarImage src={seller.avatarUrl || `https://placehold.co/100x100.png`} alt={seller.name} data-ai-hint="avatar person" />
+                <AvatarImage src={seller.avatarUrl || `https://placehold.co/100x100.png`} alt={seller.name} data-ai-hint="avatar person"/>
                 <AvatarFallback>{seller.name.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div>

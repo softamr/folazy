@@ -45,7 +45,7 @@ const translations = {
     tableHeadImage: "Image",
     tableHeadTitle: "Title",
     tableHeadSeller: "Seller",
-    tableHeadPrice: "Price",
+    tableHeadPrice: "Price (EGP)",
     tableHeadStatus: "Status",
     tableHeadFeatured: "Featured",
     tableHeadPostedDate: "Posted Date",
@@ -79,6 +79,7 @@ const translations = {
     editActionToastDesc: (id: string) => `Editing listing ${id} (not implemented)`,
     untitledListing: "Untitled Listing",
     notApplicable: "N/A",
+    currencySymbol: "EGP",
   },
   ar: {
     pageTitle: "إدارة الإعلانات",
@@ -98,7 +99,7 @@ const translations = {
     tableHeadImage: "الصورة",
     tableHeadTitle: "العنوان",
     tableHeadSeller: "البائع",
-    tableHeadPrice: "السعر",
+    tableHeadPrice: "السعر (جنيه)",
     tableHeadStatus: "الحالة",
     tableHeadFeatured: "مميز",
     tableHeadPostedDate: "تاريخ النشر",
@@ -132,6 +133,7 @@ const translations = {
     editActionToastDesc: (id: string) => `تعديل الإعلان ${id} (غير مطبق)`,
     untitledListing: "إعلان بدون عنوان",
     notApplicable: "غير متاح",
+    currencySymbol: "جنيه",
   }
 };
 
@@ -338,12 +340,12 @@ export default function ListingManagementPage() {
                       />
                     </TableCell>
                     <TableCell className="font-medium max-w-[200px] truncate">
-                      <Link href={`/listings/${listing.id}`} target="_blank" className="hover:underline" title={listing.title}>
+                      <Link href={`/listings/${listing.id}?admin_view=true`} target="_blank" className="hover:underline" title={listing.title}>
                           {listing.title || t.untitledListing}
                       </Link>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{listing.seller?.name || t.notApplicable}</TableCell>
-                    <TableCell className="text-muted-foreground">${listing.price?.toLocaleString() || '0'}</TableCell>
+                    <TableCell className="text-muted-foreground">{listing.price?.toLocaleString() || '0'} {t.currencySymbol}</TableCell>
                     <TableCell>
                       <Badge className={getStatusBadgeClasses(listing.status)}>
                         {getStatusText(listing.status)}

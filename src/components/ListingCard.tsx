@@ -14,10 +14,12 @@ const translations = {
   en: {
     featured: "Featured",
     viewDetails: "View Details",
+    currencySymbol: "EGP",
   },
   ar: {
     featured: "مميز",
     viewDetails: "عرض التفاصيل",
+    currencySymbol: "جنيه",
   }
 };
 
@@ -58,7 +60,9 @@ export function ListingCard({ listing }: ListingCardProps) {
             {listing.title}
           </CardTitle>
         </Link>
-        <p className="text-lg font-bold text-primary mt-1 mb-1.5" dir="ltr">${listing.price.toLocaleString()}</p>
+        <p className="text-lg font-bold text-primary mt-1 mb-1.5">
+          {listing.price.toLocaleString()} <span className="text-sm font-normal">{t.currencySymbol}</span>
+        </p>
         <div className="text-xs text-muted-foreground space-y-0.5">
           <div className="flex items-center">
             <MapPin className={`h-3 w-3 ${language === 'ar' ? 'ms-1' : 'me-1'} shrink-0`} />

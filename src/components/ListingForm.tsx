@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { Category, ListingStatus, User, Listing as ListingType, ListingCategoryInfo } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ImageAnalysisTool } from './ImageAnalysisTool';
-import { Upload, DollarSign, MapPinIcon, TagIcon, ListTree, Loader2 } from 'lucide-react';
+import { Upload, MapPinIcon, TagIcon, ListTree, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { addDoc, collection, doc, getDoc, getDocs, query as firestoreQuery, orderBy } from 'firebase/firestore';
@@ -69,7 +69,8 @@ const translations = {
     submissionFailedTitle: "Submission Failed",
     submissionFailedDescDefault: "Could not submit your listing. Please try again.",
     errorTitle: "Error",
-    couldNotLoadCategories: "Could not load categories for the form."
+    couldNotLoadCategories: "Could not load categories for the form.",
+    currencyUnit: "(EGP)",
   },
   ar: {
     titleMin: "يجب أن يتكون العنوان من 5 أحرف على الأقل",
@@ -109,7 +110,8 @@ const translations = {
     submissionFailedTitle: "فشل الإرسال",
     submissionFailedDescDefault: "لم نتمكن من إرسال إعلانك. يرجى المحاولة مرة أخرى.",
     errorTitle: "خطأ",
-    couldNotLoadCategories: "لم نتمكن من تحميل الفئات للنموذج."
+    couldNotLoadCategories: "لم نتمكن من تحميل الفئات للنموذج.",
+    currencyUnit: "(جنيه)",
   }
 };
 
@@ -338,7 +340,9 @@ export function ListingForm() {
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center"><DollarSign className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`}/>{t.priceLabel}</FormLabel>
+                      <FormLabel className="flex items-center">
+                        {t.priceLabel} <span className={`text-xs text-muted-foreground ${language === 'ar' ? 'mr-1' : 'ml-1'}`}>{t.currencyUnit}</span>
+                      </FormLabel>
                       <FormControl>
                         <Input type="number" placeholder={t.pricePlaceholder} {...field} value={field.value ?? ''} disabled={isSubmitting} />
                       </FormControl>

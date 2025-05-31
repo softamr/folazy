@@ -35,6 +35,7 @@ const translations = {
     errorTitle: "Error",
     searchQueryLabel: 'Search by Keyword',
     searchQueryPlaceholder: 'e.g., red sofa, iphone 12',
+    currencySymbol: "EGP",
   },
   ar: {
     categoryLabel: 'الفئة',
@@ -52,6 +53,7 @@ const translations = {
     errorTitle: "خطأ",
     searchQueryLabel: 'البحث بالكلمة الرئيسية',
     searchQueryPlaceholder: 'مثال: كنبة حمراء، ايفون ١٢',
+    currencySymbol: "جنيه",
   }
 };
 
@@ -260,7 +262,7 @@ export function FilterBar() {
         
         <div className="lg:col-span-1">
           <Label htmlFor="price-range-filter" className="text-sm font-medium">
-            {t.priceRangeLabel}: ${priceRange[0]} - ${priceRange[1]}{priceRange[1] >= 2000 ? '+' : ''}
+            {t.priceRangeLabel}: {priceRange[0]} - {priceRange[1]}{priceRange[1] >= 2000 ? '+' : ''} {t.currencySymbol}
           </Label>
           <Slider
             id="price-range-filter"
@@ -286,4 +288,3 @@ export function FilterBar() {
     </div>
   );
 }
-
