@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, getDocs, Timestamp, limit as firestoreLimit } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp, limit as firestoreLimit, getCountFromServer } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PackageOpen } from 'lucide-react';
 
@@ -39,8 +39,8 @@ const translations = {
   }
 };
 
-const MAX_HOME_LISTINGS = 8;
-const MAX_FEATURED_TO_SHOW_SEPARATELY = 4;
+const MAX_HOME_LISTINGS = 8; // Total listings to aim for on the homepage (featured + other)
+const MAX_FEATURED_TO_SHOW_SEPARATELY = 4; // Max listings in the dedicated "Featured" section
 
 export default function HomePage() {
   const { language } = useLanguage();
@@ -57,20 +57,42 @@ export default function HomePage() {
       setIsLoading(true);
       try {
         const listingsRef = collection(db, 'listings');
-        const q = query(
+
+        // Query for featured listings
+        const featuredQuery = query(
           listingsRef,
           where('status', '==', 'approved'),
-          orderBy('postedDate', 'desc')
+          where('isFeatured', '==', true),
+          orderBy('postedDate', 'desc'),
+          firestoreLimit(MAX_FEATURED_TO_SHOW_SEPARATELY)
         );
-        const querySnapshot = await getDocs(q);
-        const allApproved: Listing[] = [];
-        querySnapshot.forEach((doc) => {
+
+        // Query for non-featured listings (enough to fill up MAX_HOME_LISTINGS)
+        const nonFeaturedQuery = query(
+          listingsRef,
+          where('status', '==', 'approved'),
+          where('isFeatured', '==', false), // Explicitly non-featured
+          orderBy('postedDate', 'desc'),
+          firestoreLimit(MAX_HOME_LISTINGS) // Fetch enough candidates
+        );
+        
+        // Query for total count of approved listings
+        const countQuery = query(listingsRef, where('status', '==', 'approved'));
+
+        const [featuredSnapshot, nonFeaturedSnapshot, approvedCountSnapshot] = await Promise.all([
+          getDocs(featuredQuery),
+          getDocs(nonFeaturedQuery),
+          getCountFromServer(countQuery)
+        ]);
+
+        const fetchedFeaturedListings: Listing[] = [];
+        featuredSnapshot.forEach((doc) => {
           const data = doc.data();
           let postedDate = data.postedDate;
           if (postedDate instanceof Timestamp) {
             postedDate = postedDate.toDate().toISOString();
           }
-          allApproved.push({ 
+          fetchedFeaturedListings.push({ 
             ...data, 
             id: doc.id, 
             postedDate,
@@ -78,20 +100,29 @@ export default function HomePage() {
             seller: data.seller || { id: 'unknown', name: 'Unknown Seller', email: '', joinDate: new Date().toISOString() },
            } as Listing);
         });
+        setFeaturedListings(fetchedFeaturedListings);
 
-        setAllApprovedCount(allApproved.length);
-
-        const featured = allApproved.filter(listing => listing.isFeatured).sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
-        const nonFeatured = allApproved.filter(listing => !listing.isFeatured).sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
-
-        if (featured.length >= MAX_FEATURED_TO_SHOW_SEPARATELY) {
-            setFeaturedListings(featured.slice(0, MAX_FEATURED_TO_SHOW_SEPARATELY));
-            const remainingFeatured = featured.slice(MAX_FEATURED_TO_SHOW_SEPARATELY);
-            setOtherRecommendations([...remainingFeatured, ...nonFeatured].slice(0, MAX_HOME_LISTINGS - featured.slice(0, MAX_FEATURED_TO_SHOW_SEPARATELY).length));
-        } else {
-            setFeaturedListings(featured);
-            setOtherRecommendations(nonFeatured.slice(0, MAX_HOME_LISTINGS - featured.length));
-        }
+        const fetchedNonFeaturedListings: Listing[] = [];
+        nonFeaturedSnapshot.forEach((doc) => {
+          const data = doc.data();
+          let postedDate = data.postedDate;
+          if (postedDate instanceof Timestamp) {
+            postedDate = postedDate.toDate().toISOString();
+          }
+          fetchedNonFeaturedListings.push({ 
+            ...data, 
+            id: doc.id, 
+            postedDate,
+            category: data.category || { id: 'unknown', name: 'Unknown' },
+            seller: data.seller || { id: 'unknown', name: 'Unknown Seller', email: '', joinDate: new Date().toISOString() },
+           } as Listing);
+        });
+        
+        // Determine how many non-featured listings to show in "Other Recommendations"
+        const numOtherNeeded = MAX_HOME_LISTINGS - fetchedFeaturedListings.length;
+        setOtherRecommendations(fetchedNonFeaturedListings.slice(0, Math.max(0, numOtherNeeded) ));
+        
+        setAllApprovedCount(approvedCountSnapshot.data().count);
 
       } catch (error) {
         console.error("Error fetching listings for homepage:", error);
@@ -143,7 +174,7 @@ export default function HomePage() {
       {otherRecommendations.length > 0 && (
          <div>
           <h2 className="text-2xl font-semibold mb-6 text-center text-foreground">
-            {featuredListings.length === 0 ? t.noFeaturedListings : t.moreRecommendationsSectionTitle}
+            {featuredListings.length === 0 && allApprovedCount > 0 ? t.noFeaturedListings : t.moreRecommendationsSectionTitle}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {otherRecommendations.map((listing) => (
@@ -160,7 +191,8 @@ export default function HomePage() {
         </div>
       )}
 
-      {allApprovedCount > MAX_HOME_LISTINGS && (
+      {/* Show "View More" button if total approved listings exceed what's shown (MAX_HOME_LISTINGS) or a sensible minimum */}
+      {(allApprovedCount > MAX_HOME_LISTINGS || (allApprovedCount > 0 && (featuredListings.length + otherRecommendations.length) < allApprovedCount && (featuredListings.length + otherRecommendations.length) >= MAX_HOME_LISTINGS) ) && (
         <div className="text-center mt-8">
           <Button asChild variant="outline">
             <Link href="/s/all-listings">{t.viewMoreButton}</Link>
