@@ -18,7 +18,16 @@ import { useToast } from '@/hooks/use-toast';
 
 async function fetchFilteredListingsClient(
   slug: string[] | undefined,
-  filters: { query?: string; minPrice?: string; maxPrice?: string; categoryId?: string; subcategoryId?: string },
+  filters: { 
+    query?: string; 
+    minPrice?: string; 
+    maxPrice?: string; 
+    categoryId?: string; 
+    subcategoryId?: string;
+    locationCountryId?: string;
+    locationGovernorateId?: string;
+    locationDistrictId?: string;
+  },
   allFirestoreCategories: CategoryType[]
 ): Promise<{ listings: Listing[], category?: CategoryType, subcategory?: CategoryType, breadcrumbCategories: CategoryType[] }> {
   
@@ -26,7 +35,6 @@ async function fetchFilteredListingsClient(
   let subcategory: CategoryType | undefined;
   const breadcrumbCategories: CategoryType[] = [];
 
-  // Determine category/subcategory from SLUG first for breadcrumbs primarily
   let slugCategory: CategoryType | undefined;
   let slugSubcategory: CategoryType | undefined;
 
@@ -43,7 +51,6 @@ async function fetchFilteredListingsClient(
     }
   }
   
-  // Determine category/subcategory for FILTERING (can be from slug or query params)
   let filterCategoryId = filters.categoryId;
   let filterSubcategoryId = filters.subcategoryId;
 
@@ -54,7 +61,6 @@ async function fetchFilteredListingsClient(
     filterSubcategoryId = slugSubcategory.id;
   }
 
-  // Fetch from Firestore
   const listingsRef = collection(db, 'listings');
   let q = firestoreQuery(listingsRef, where('status', '==', 'approved'));
 
@@ -68,6 +74,17 @@ async function fetchFilteredListingsClient(
       subcategory = category.subcategories.find(sc => sc.id === filterSubcategoryId);
     }
   }
+
+  if (filters.locationCountryId) {
+    q = firestoreQuery(q, where('locationCountry.id', '==', filters.locationCountryId));
+  }
+  if (filters.locationGovernorateId) {
+    q = firestoreQuery(q, where('locationGovernorate.id', '==', filters.locationGovernorateId));
+  }
+  if (filters.locationDistrictId) {
+    q = firestoreQuery(q, where('locationDistrict.id', '==', filters.locationDistrictId));
+  }
+
   q = firestoreQuery(q, firestoreOrderBy('postedDate', 'desc'));
 
   const querySnapshot = await getDocs(q);
@@ -87,7 +104,6 @@ async function fetchFilteredListingsClient(
      } as Listing);
   });
 
-  // Apply client-side filters (text search, price)
   if (filters.query) {
     const lowerQuery = filters.query.toLowerCase();
     fetchedListings = fetchedListings.filter(l => 
@@ -102,7 +118,6 @@ async function fetchFilteredListingsClient(
     fetchedListings = fetchedListings.filter(l => l.price <= Number(filters.maxPrice));
   }
   
-  // If breadcrumbs are empty but filters were applied, try to populate breadcrumb from filter category
   if (breadcrumbCategories.length === 0 && category) {
     breadcrumbCategories.push(category);
     if (subcategory) {
@@ -189,8 +204,11 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
     const maxPrice = clientSearchParams.get('maxPrice') || undefined;
     const categoryId = clientSearchParams.get('categoryId') || undefined;
     const subcategoryId = clientSearchParams.get('subcategoryId') || undefined;
+    const locationCountryId = clientSearchParams.get('locationCountryId') || undefined;
+    const locationGovernorateId = clientSearchParams.get('locationGovernorateId') || undefined;
+    const locationDistrictId = clientSearchParams.get('locationDistrictId') || undefined;
     
-    const filters = { query, minPrice, maxPrice, categoryId, subcategoryId };
+    const filters = { query, minPrice, maxPrice, categoryId, subcategoryId, locationCountryId, locationGovernorateId, locationDistrictId };
 
     fetchFilteredListingsClient(slug, filters, allCategoriesData)
       .then(setData)
@@ -211,9 +229,7 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
              'apartments for rent': 'شقق للإيجار',
              'properties for rent': 'عقارات للإيجار', 
              'properties for sale': 'عقارات للبيع',
-             // Add more specific translations if needed from your Firestore categories
         };
-        // Attempt to translate by ID first, then by English name as a fallback
         const catIdLower = cat.id?.toLowerCase() || '';
         const catNameLower = cat.name?.toLowerCase() || '';
         return arNames[catIdLower] || arNames[catNameLower] || cat.name;
@@ -325,3 +341,4 @@ function CardSkeleton() {
     </div>
   );
 }
+
