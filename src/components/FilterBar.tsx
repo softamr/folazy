@@ -10,7 +10,7 @@ import type { Category } from '@/lib/types';
 import { Filter, Search, X, Loader2 } from 'lucide-react';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query as firestoreQuery, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -58,6 +58,7 @@ const translations = {
 export function FilterBar() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { language } = useLanguage();
   const t = translations[language];
   const { toast } = useToast();
@@ -65,14 +66,11 @@ export function FilterBar() {
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('query') || '');
-  const [selectedCategoryId, setSelectedCategoryId] = useState(searchParams.get('categoryId') || ALL_CATEGORIES_VALUE);
-  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState(searchParams.get('subcategoryId') || ALL_SUBCATEGORIES_VALUE);
-  const [priceRange, setPriceRange] = useState<[number, number]>([
-    Number(searchParams.get('minPrice') || 0),
-    Number(searchParams.get('maxPrice') || 2000)
-  ]);
-  const [location, setLocation] = useState(''); // Location filter still not implemented for search logic
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(ALL_CATEGORIES_VALUE);
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState(ALL_SUBCATEGORIES_VALUE);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 2000]);
+  const [location, setLocation] = useState(''); 
 
   const [availableSubcategories, setAvailableSubcategories] = useState<Category[]>([]);
 
@@ -99,45 +97,77 @@ export function FilterBar() {
   }, [toast, t]);
 
   useEffect(() => {
-    // Update available subcategories when selectedCategoryId or allCategories changes
-    if (selectedCategoryId && selectedCategoryId !== ALL_CATEGORIES_VALUE && allCategories.length > 0) {
-      const mainCat = allCategories.find(c => c.id === selectedCategoryId);
-      setAvailableSubcategories(mainCat?.subcategories || []);
+    // Sync FilterBar's UI state with URL (slug + query params)
+    if (isLoadingCategories || !allCategories.length) return;
+
+    const pathSegments = pathname.split('/').filter(Boolean); 
+    let slugCatId: string | undefined = undefined;
+    let slugSubcatId: string | undefined = undefined;
+
+    if (pathSegments[0] === 's') {
+      if (pathSegments.length > 1 && pathSegments[1] !== 'all-listings') {
+        slugCatId = pathSegments[1];
+      }
+      if (pathSegments.length > 2) {
+        slugSubcatId = pathSegments[2];
+      }
+    }
+
+    const queryCatId = searchParams.get('categoryId');
+    const querySubcatId = searchParams.get('subcategoryId');
+    
+    const finalCatId = queryCatId || slugCatId || ALL_CATEGORIES_VALUE;
+    const finalSubcatId = querySubcatId || slugSubcatId || ALL_SUBCATEGORIES_VALUE;
+
+    setSelectedCategoryId(finalCatId);
+    if (finalCatId !== ALL_CATEGORIES_VALUE) {
+        const mainCat = allCategories.find(c => c.id === finalCatId);
+        setAvailableSubcategories(mainCat?.subcategories || []);
     } else {
-      setAvailableSubcategories([]);
+        setAvailableSubcategories([]);
     }
-  }, [selectedCategoryId, allCategories]);
+    setSelectedSubcategoryId(finalSubcatId);
 
-  const updateQueryParams = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    
-    if (searchQuery) params.set('query', searchQuery); else params.delete('query');
-    if (selectedCategoryId && selectedCategoryId !== ALL_CATEGORIES_VALUE) params.set('categoryId', selectedCategoryId); else params.delete('categoryId');
-    if (selectedSubcategoryId && selectedSubcategoryId !== ALL_SUBCATEGORIES_VALUE) params.set('subcategoryId', selectedSubcategoryId); else params.delete('subcategoryId');
-    if (priceRange[0] > 0) params.set('minPrice', String(priceRange[0])); else params.delete('minPrice');
-    if (priceRange[1] < 2000) params.set('maxPrice', String(priceRange[1])); else params.delete('maxPrice');
-    
-    // Preserve slug from current path if possible, or default to all-listings for filtering
-    const currentPath = window.location.pathname;
-    // Basic check to see if currentPath is already a category/subcategory path
-    const pathSegments = currentPath.split('/').filter(Boolean);
-    let basePath = '/s/all-listings'; // Default if not on a specific category page
-    if (pathSegments[0] === 's' && pathSegments.length > 1) {
-       basePath = `/s/${pathSegments.slice(1).join('/')}`;
+    setSearchQuery(searchParams.get('query') || '');
+    setPriceRange([
+      Number(searchParams.get('minPrice') || 0),
+      Number(searchParams.get('maxPrice') || 2000)
+    ]);
+
+  }, [pathname, searchParams, isLoadingCategories, allCategories]);
+
+
+  const handleApplyFilters = useCallback(() => {
+    let newPath = '/s/all-listings';
+    if (selectedCategoryId && selectedCategoryId !== ALL_CATEGORIES_VALUE) {
+      newPath = `/s/${selectedCategoryId}`;
+      if (selectedSubcategoryId && selectedSubcategoryId !== ALL_SUBCATEGORIES_VALUE) {
+        newPath = `${newPath}/${selectedSubcategoryId}`;
+      }
     }
 
-    router.push(`${basePath}?${params.toString()}`);
-  }, [searchQuery, selectedCategoryId, selectedSubcategoryId, priceRange, router, searchParams]);
+    const params = new URLSearchParams();
+    if (searchQuery) params.set('query', searchQuery);
+    if (priceRange[0] > 0) params.set('minPrice', String(priceRange[0]));
+    if (priceRange[1] < 2000) params.set('maxPrice', String(priceRange[1]));
+    // categoryId and subcategoryId are now part of the path, not query params.
+    
+    router.push(`${newPath}${params.toString() ? `?${params.toString()}` : ''}`);
+  }, [selectedCategoryId, selectedSubcategoryId, searchQuery, priceRange, router]);
 
   const handleMainCategoryChange = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
-    setSelectedSubcategoryId(ALL_SUBCATEGORIES_VALUE); // Reset subcategory when main category changes
-    // Query params will be updated by apply/search button
+    setSelectedSubcategoryId(ALL_SUBCATEGORIES_VALUE); 
+    if (categoryId !== ALL_CATEGORIES_VALUE) {
+        const mainCat = allCategories.find(c => c.id === categoryId);
+        setAvailableSubcategories(mainCat?.subcategories || []);
+    } else {
+        setAvailableSubcategories([]);
+    }
   };
 
   const handleSubcategoryChange = (subcategoryId: string) => {
     setSelectedSubcategoryId(subcategoryId);
-    // Query params will be updated by apply/search button
   };
 
   const handleResetFilters = () => {
@@ -147,24 +177,20 @@ export function FilterBar() {
     setAvailableSubcategories([]);
     setPriceRange([0, 2000]);
     setLocation('');
-    
-    const params = new URLSearchParams(); // Cleared params
-    const currentPath = window.location.pathname;
-    const pathSegments = currentPath.split('/').filter(Boolean);
-    let basePath = '/s/all-listings'; 
-    if (pathSegments[0] === 's' && pathSegments.length > 1 && pathSegments[1] !== 'all-listings') {
-       basePath = `/s/${pathSegments.slice(1).join('/')}`; // Reset to current category page if on one
-    }
-    router.push(basePath + (params.toString() ? `?${params.toString()}` : ''));
+    router.push('/s/all-listings');
   };
   
   const getCategoryName = (category: Category): string => {
-    // Basic translation, extend as needed
     if (language === 'ar') {
         const arNames: Record<string, string> = {
-             'electronics': 'إلكترونيات', 'vehicles': 'مركبات', 'properties': 'عقارات', /* ... more */
+             'electronics': 'إلكترونيات', 'vehicles': 'مركبات', 'properties': 'عقارات',
+             'mobiles': 'هواتف محمولة', 'tablets': 'أجهزة لوحية', 'cars': 'سيارات',
+             'apartments for rent': 'شقق للإيجار','properties for rent': 'عقارات للإيجار', 
+             'properties for sale': 'عقارات للبيع',
         };
-        return arNames[category.id.toLowerCase()] || arNames[category.name.toLowerCase()] || category.name;
+        const categoryIdLower = category.id.toLowerCase();
+        const categoryNameLower = category.name.toLowerCase();
+        return arNames[categoryIdLower] || arNames[categoryNameLower] || category.name;
     }
     return category.name;
   };
@@ -172,7 +198,6 @@ export function FilterBar() {
   return (
     <div className="mb-8 p-4 md:p-6 bg-card rounded-lg shadow">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-        {/* Search Query */}
         <div className="md:col-span-2 lg:col-span-3">
           <Label htmlFor="search-query-filter" className="text-sm font-medium">{t.searchQueryLabel}</Label>
           <Input
@@ -185,7 +210,6 @@ export function FilterBar() {
           />
         </div>
 
-        {/* Category */}
         <div>
           <Label htmlFor="category-filter" className="text-sm font-medium">{t.categoryLabel}</Label>
           <Select 
@@ -208,7 +232,6 @@ export function FilterBar() {
           </Select>
         </div>
 
-        {/* Subcategory */}
         <div>
           <Label htmlFor="subcategory-filter" className="text-sm font-medium">{t.subcategoryLabel}</Label>
           <Select 
@@ -235,7 +258,6 @@ export function FilterBar() {
           </Select>
         </div>
         
-        {/* Price Range */}
         <div className="lg:col-span-1">
           <Label htmlFor="price-range-filter" className="text-sm font-medium">
             {t.priceRangeLabel}: ${priceRange[0]} - ${priceRange[1]}{priceRange[1] >= 2000 ? '+' : ''}
@@ -243,7 +265,7 @@ export function FilterBar() {
           <Slider
             id="price-range-filter"
             min={0}
-            max={2000} // Max can be adjusted
+            max={2000} 
             step={50}
             value={priceRange}
             onValueChange={(newRange) => setPriceRange(newRange as [number, number])}
@@ -251,25 +273,9 @@ export function FilterBar() {
             dir={language === 'ar' ? 'rtl' : 'ltr'}
           />
         </div>
-        
-        {/* Location (Still not implemented in search logic) */}
-        {/*
-        <div>
-          <Label htmlFor="location-filter" className="text-sm font-medium">{t.locationLabel}</Label>
-          <Input
-            id="location-filter"
-            type="text"
-            placeholder={t.locationPlaceholder}
-            className="mt-1"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            disabled // Disabled until implemented
-          />
-        </div>
-        */}
       </div>
       <div className="flex flex-col sm:flex-row gap-2 mt-6">
-          <Button onClick={updateQueryParams} className="w-full flex-grow" disabled={isLoadingCategories}>
+          <Button onClick={handleApplyFilters} className="w-full flex-grow" disabled={isLoadingCategories}>
               {isLoadingCategories ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <Search className="me-2 h-4 w-4" />} 
               {t.searchButton}
           </Button>
@@ -280,3 +286,4 @@ export function FilterBar() {
     </div>
   );
 }
+
