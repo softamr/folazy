@@ -117,3 +117,11 @@ export type IconMapping = {
     [key: string]: LucideIconType;
 };
 
+export type HeroBannerImage = {
+  id: string; // Unique ID for the image (e.g., Firestore auto-ID or timestamp-based)
+  src: string; // URL of the image in Firebase Storage
+  alt: string; // Alt text for accessibility
+  uploadedAt?: string; // ISO string timestamp
+  // dataAiHint?: string; // Optional AI hint if admins provide it
+};
+
