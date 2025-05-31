@@ -10,9 +10,13 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { placeholderConversations, placeholderUsers, placeholderMessagesForConversation, placeholderListings } from '@/lib/placeholder-data';
 import type { Conversation, Message as MessageType, User as UserType, Listing } from '@/lib/types';
-import { Send, ArrowLeft, Paperclip, Smile, MessageSquare as MessageSquareIcon } from 'lucide-react';
+import { Send, ArrowLeft, Paperclip, Smile, MessageSquare as MessageSquareIcon, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/hooks/useLanguage';
+import { auth, db } from '@/lib/firebase'; // Added Firebase imports
+import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'; // Added Firebase imports
+import { doc, getDoc } from 'firebase/firestore'; // Added Firebase imports
+import { useToast } from '@/hooks/use-toast'; // Added useToast
 
 const translations = {
   en: {
@@ -35,6 +39,8 @@ const translations = {
     typeYourMessagePlaceholder: "Type your message...",
     sendSr: "Send",
     unknownUser: "Unknown User",
+    errorTitle: "Error",
+    failedToLoadProfile: "Failed to load your profile for messaging.",
   },
   ar: {
     loadingMessages: "جار تحميل الرسائل...",
@@ -56,6 +62,8 @@ const translations = {
     typeYourMessagePlaceholder: "اكتب رسالتك...",
     sendSr: "إرسال",
     unknownUser: "مستخدم غير معروف",
+    errorTitle: "خطأ",
+    failedToLoadProfile: "فشل تحميل ملفك الشخصي للرسائل.",
   }
 };
 
@@ -64,12 +72,14 @@ export default function MessagesPage() {
   const searchParams = useSearchParams();
   const { language } = useLanguage();
   const t = translations[language];
+  const { toast } = useToast();
 
   const conversationIdParam = searchParams.get('conversationId');
   const listingIdParam = searchParams.get('listingId');
   const recipientIdParam = searchParams.get('recipientId');
 
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null); // For Firebase auth object
   const [conversations, setConversations] = useState<Conversation[]>(placeholderConversations);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<MessageType[]>([]);
@@ -77,32 +87,65 @@ export default function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    const user = placeholderUsers.find(u => u.id === 'user1'); 
-    setCurrentUser(user || null);
-  }, []);
+    setIsLoading(true);
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setFirebaseAuthUser(user);
+        try {
+          const userDocRef = doc(db, "users", user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            setCurrentUser({ id: userDocSnap.id, ...userDocSnap.data() } as UserType);
+          } else {
+            // Fallback if user doc doesn't exist, create a minimal UserType object
+            setCurrentUser({
+              id: user.uid,
+              name: user.displayName || user.email || "User",
+              email: user.email || "",
+              avatarUrl: user.photoURL || "",
+              joinDate: user.metadata.creationTime || new Date().toISOString(),
+              isAdmin: false,
+            });
+            console.warn("User document not found for UID:", user.uid, "Using basic auth data for messages.");
+          }
+        } catch (error) {
+          console.error("Error fetching user document for messages:", error);
+          toast({ title: t.errorTitle, description: t.failedToLoadProfile, variant: "destructive" });
+          setCurrentUser(null);
+        }
+      } else {
+        setFirebaseAuthUser(null);
+        setCurrentUser(null);
+      }
+      // Delay setting isLoading to false to allow conversation logic to run after currentUser is set
+      // setIsLoading(false); // This will be set to false in the next useEffect
+    });
+    return () => unsubscribeAuth();
+  }, [toast, t]);
+
 
   useEffect(() => {
-    if (!currentUser && !isLoading && placeholderUsers.length === 0) {
-        setIsLoading(false);
-        return;
-    }
-    if (!currentUser && placeholderUsers.length > 0 && !isLoading) {
+    // This effect runs after the auth check and currentUser state update.
+    if (isLoading && currentUser === undefined) { // Still waiting for initial auth state
         return;
     }
 
-    setIsLoading(true);
+    // If isLoading is true but currentUser is now determined (null or UserType),
+    // then we can proceed with conversation logic and then set isLoading to false.
+    
     let activeConversation: Conversation | undefined;
 
     if (conversationIdParam) {
       activeConversation = conversations.find(c => c.id === conversationIdParam);
     } else if (listingIdParam && recipientIdParam && currentUser) {
+      // Check if a conversation already exists
       activeConversation = conversations.find(c => 
         c.listingId === listingIdParam && 
         c.participants.some(p => p.id === recipientIdParam) &&
         c.participants.some(p => p.id === currentUser.id)
       );
       
-      if (!activeConversation) {
+      if (!activeConversation) { // If not, create a new one (still using placeholder data for other users/listings)
         const recipient = placeholderUsers.find(u => u.id === recipientIdParam);
         const listing = placeholderListings.find(l => l.id === listingIdParam);
         if (recipient && listing && currentUser) {
@@ -111,7 +154,7 @@ export default function MessagesPage() {
              id: newConvoId,
              listingId: listingIdParam,
              listingTitle: listing.title,
-             participants: [currentUser, recipient],
+             participants: [currentUser, recipient], // Current user is now real
              lastMessage: { 
                 id: 'temp', 
                 conversationId: newConvoId,
@@ -124,8 +167,9 @@ export default function MessagesPage() {
              unreadCount: 0,
            };
            setConversations(prev => [...prev, activeConversation!]);
-           const updatedMessagesForConvo = { ...placeholderMessagesForConversation };
-           updatedMessagesForConvo[newConvoId] = [activeConversation!.lastMessage]; 
+           // Note: placeholderMessagesForConversation would need update for persistence
+           // For now, just setting messages for this new active convo locally
+           placeholderMessagesForConversation[newConvoId] = [activeConversation!.lastMessage]; 
         }
       }
     }
@@ -134,11 +178,13 @@ export default function MessagesPage() {
       setSelectedConversation(activeConversation);
       setMessages(placeholderMessagesForConversation[activeConversation.id] || []);
     } else if (conversations.length > 0 && !conversationIdParam && !listingIdParam) {
-      setSelectedConversation(conversations[0]);
-      setMessages(placeholderMessagesForConversation[conversations[0].id] || []);
+      // Default to first conversation if no params and conversations exist
+      // setSelectedConversation(conversations[0]);
+      // setMessages(placeholderMessagesForConversation[conversations[0].id] || []);
     }
-    setIsLoading(false);
-  }, [conversationIdParam, listingIdParam, recipientIdParam, currentUser, conversations, isLoading, t.reListingPrefix]);
+    setIsLoading(false); // Auth check and initial conversation logic is done
+
+  }, [conversationIdParam, listingIdParam, recipientIdParam, currentUser, conversations, t.reListingPrefix, isLoading]);
 
   const handleSendMessage = () => {
     if (!newMessage.trim() || !selectedConversation || !currentUser) return;
@@ -160,8 +206,10 @@ export default function MessagesPage() {
     setSelectedConversation(updatedConvo);
     setConversations(prevConvos => prevConvos.map(c => c.id === updatedConvo.id ? updatedConvo : c));
     
-    const updatedMessagesForConvo = { ...placeholderMessagesForConversation };
-    updatedMessagesForConvo[selectedConversation.id] = [...(updatedMessagesForConvo[selectedConversation.id] || []), msg];
+    // This part still relies on placeholderMessagesForConversation which isn't ideal for persistence
+    // but keeps the immediate display working.
+    const currentMessagesForThisConvo = placeholderMessagesForConversation[selectedConversation.id] || [];
+    placeholderMessagesForConversation[selectedConversation.id] = [...currentMessagesForThisConvo, msg];
 
     setNewMessage('');
   };
@@ -171,13 +219,19 @@ export default function MessagesPage() {
     return convo.participants.find(p => p.id !== currentUser.id);
   };
 
-  if (isLoading && !currentUser && placeholderUsers.length === 0 ) {
-     return <div className="flex justify-center items-center h-[calc(100vh-200px)]">{t.loadingMessages}</div>;
+
+  if (isLoading) { // Unified loading state
+     return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-15rem)] py-12">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">{t.loadingMessages}</p>
+      </div>
+     );
   }
   
-  if (!currentUser && !isLoading) {
+  if (!currentUser) { // Check after loading is complete
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center border rounded-lg shadow-lg">
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center border rounded-lg shadow-lg min-h-[calc(100vh-15rem)]">
         <MessageSquareIcon className="h-16 w-16 mb-4 text-muted-foreground" />
         <p className="text-xl font-medium">{t.pleaseLogin}</p>
         <p className="text-muted-foreground mb-6">{t.loginRequiredDesc}</p>
@@ -188,10 +242,6 @@ export default function MessagesPage() {
     );
   }
   
-  if (isLoading) {
-     return <div className="flex justify-center items-center h-[calc(100vh-200px)]">{t.loadingConversations}</div>;
-  }
-
   return (
     <div className="flex flex-col md:flex-row h-[calc(100vh-10rem)] border rounded-lg shadow-lg overflow-hidden">
       <Card className={`w-full md:w-1/3 ${language === 'ar' ? 'border-l' : 'border-r'} rounded-none ${language === 'ar' ? 'md:rounded-r-lg md:rounded-l-none' : 'md:rounded-l-lg md:rounded-r-none'}`}>
@@ -210,9 +260,8 @@ export default function MessagesPage() {
                 variant="ghost"
                 className={`w-full justify-start p-3 h-auto rounded-none border-b ${selectedConversation?.id === convo.id ? 'bg-muted' : ''}`}
                 onClick={() => {
+                  // Using router.push to update URL which will trigger useEffect for conversation loading
                   router.push(`/messages?conversationId=${convo.id}`); 
-                  setSelectedConversation(convo);
-                  setMessages(placeholderMessagesForConversation[convo.id] || []);
                 }}
               >
                 <Avatar className={`h-10 w-10 ${language === 'ar' ? 'ms-3' : 'me-3'}`}>
@@ -260,7 +309,10 @@ export default function MessagesPage() {
                   </CardDescription>
                 )}
               </div>
-               <Button variant="ghost" size="icon" onClick={() => setSelectedConversation(null)} className="md:hidden">
+               <Button variant="ghost" size="icon" onClick={() => {
+                setSelectedConversation(null);
+                router.push('/messages'); // Clear query params by navigating to base messages page
+                }} className="md:hidden">
                  <ArrowLeft className="h-5 w-5"/>
                </Button>
             </CardHeader>
