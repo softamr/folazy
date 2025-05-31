@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
         hostname: 'blogger.googleusercontent.com',
         port: '',
         pathname: '/**',
+      },
+      { // Added for freepik content
+        protocol: 'https',
+        hostname: 'img.freepik.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
