@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import type { LocationCountry, LocationGovernorate, LocationDistrict } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, onSnapshot, doc, updateDoc, arrayUnion, deleteDoc, arrayRemove, writeBatch, getDocs, query as firestoreQuery, where } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, doc, updateDoc, arrayUnion, deleteDoc, arrayRemove, writeBatch, getDocs, query as firestoreQuery, where, setDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -47,6 +47,7 @@ const translations = {
     loadingLocations: "Loading locations...",
     validationErrorTitle: "Validation Error",
     nameEmptyError: (type: string) => `${type} name cannot be empty.`,
+    countryNameInvalidSlugError: "Country name results in an empty or invalid slug. Please use a different name.",
     successTitle: "Success",
     errorTitle: "Error",
     itemAddedSuccess: (name: string, type: string) => `${type} "${name}" added.`,
@@ -85,13 +86,14 @@ const translations = {
     loadingLocations: "جار تحميل المواقع...",
     validationErrorTitle: "خطأ في التحقق",
     nameEmptyError: (type: string) => `لا يمكن أن يكون اسم ${type} فارغًا.`,
+    countryNameInvalidSlugError: "اسم الدولة ينتج عنه معرف فارغ أو غير صالح. يرجى استخدام اسم مختلف.",
     successTitle: "نجاح",
     errorTitle: "خطأ",
     itemAddedSuccess: (name: string, type: string) => `تمت إضافة ${type} "${name}".`,
     couldNotAddItemError: (type: string) => `لم نتمكن من إضافة ${type}.`,
     deleteConfirm: (name: string, type: string) => `هل أنت متأكد أنك تريد حذف ${type} "${name}"؟ لا يمكن التراجع عن هذا الإجراء.`,
     deleteCountryConfirm: (name: string) => `هل أنت متأكد أنك تريد حذف الدولة "${name}" وجميع محافظاتها ومناطقها؟ لا يمكن التراجع عن هذا الإجراء.`,
-    itemDeletedSuccess: (name: string, type: string) => `تم حذف ${type} "${name}".`,
+    itemDeletedSuccess: (name: string, type: string) => `${type} "${name}" deleted.`,
     couldNotDeleteItemError: (type: string) => `لم نتمكن من حذف ${type}.`,
     deletionBlockedTitle: "تم حظر الحذف",
     deletionBlockedDesc: (type: string, name: string) => `لا يمكن حذف ${type} "${name}" لأنه مرتبط بإعلانات موجودة.`,
@@ -109,7 +111,7 @@ export default function LocationManagementPage() {
 
   const [newCountryName, setNewCountryName] = useState('');
   
-  const [showGovernorateFormFor, setShowGovernorateFormFor] = useState<string | null>(null); // countryId
+  const [showGovernorateFormFor, setShowGovernorateFormFor] = useState<string | null>(null); // countryId (which will be the slug)
   const [newGovernorateName, setNewGovernorateName] = useState('');
   
   const [showDistrictFormFor, setShowDistrictFormFor] = useState<{ countryId: string; governorateId: string } | null>(null);
@@ -124,6 +126,7 @@ export default function LocationManagementPage() {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedCountries: LocationCountry[] = [];
       querySnapshot.forEach((docSnapshot) => {
+        // docSnapshot.id is now the slug (e.g., "egypt")
         fetchedCountries.push({ id: docSnapshot.id, ...docSnapshot.data() } as LocationCountry);
       });
       setCountries(fetchedCountries.sort((a, b) => a.name.localeCompare(b.name)));
@@ -142,15 +145,23 @@ export default function LocationManagementPage() {
       return;
     }
     setIsSubmitting(true);
-    const countryId = generateSlug(newCountryName.trim());
-    const countryData: LocationCountry = {
-        id: countryId, // Store id also in document data for convenience
+    const countrySlug = generateSlug(newCountryName.trim());
+
+    if (!countrySlug) {
+        toast({ title: t.validationErrorTitle, description: t.countryNameInvalidSlugError, variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+    }
+
+    // The document ID will be countrySlug. 'id' field in data is not needed.
+    const countryDocumentData: Omit<LocationCountry, 'id'> = {
         name: newCountryName.trim(),
         governorates: []
     };
 
     try {
-      await addDoc(collection(db, 'locations'), countryData); // Firestore will generate ID, or use `setDoc(doc(db, 'locations', countryId), ...)` for custom ID
+      // Use setDoc with the slug as the document ID
+      await setDoc(doc(db, 'locations', countrySlug), countryDocumentData);
       toast({ title: t.successTitle, description: t.itemAddedSuccess(newCountryName, language === 'ar' ? 'الدولة' : 'Country') });
       setNewCountryName('');
     } catch (error) {
@@ -161,13 +172,13 @@ export default function LocationManagementPage() {
     }
   };
 
-  const handleAddGovernorate = async (countryId: string) => {
+  const handleAddGovernorate = async (countryId: string) => { // countryId is now the slug
     if (!newGovernorateName.trim()) {
       toast({ title: t.validationErrorTitle, description: t.nameEmptyError(language === 'ar' ? 'المحافظة' : 'Governorate'), variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
-    const countryDocRef = doc(db, 'locations', countryId);
+    const countryDocRef = doc(db, 'locations', countryId); // countryId is slug
     const governorateId = generateSlug(newGovernorateName.trim());
     
     const governorateData: LocationGovernorate = {
@@ -191,13 +202,13 @@ export default function LocationManagementPage() {
     }
   };
   
-  const handleAddDistrict = async (countryId: string, governorateId: string) => {
+  const handleAddDistrict = async (countryId: string, governorateId: string) => { // countryId is slug
     if (!newDistrictName.trim()) {
       toast({ title: t.validationErrorTitle, description: t.nameEmptyError(language === 'ar' ? 'المنطقة' : 'District'), variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
-    const countryDocRef = doc(db, 'locations', countryId);
+    const countryDocRef = doc(db, 'locations', countryId); // countryId is slug
     const districtId = generateSlug(newDistrictName.trim());
     
     const districtData: LocationDistrict = {
@@ -205,7 +216,7 @@ export default function LocationManagementPage() {
         name: newDistrictName.trim(),
     };
 
-    const country = countries.find(c => c.id === countryId);
+    const country = countries.find(c => c.id === countryId); // c.id is now slug
     if (!country) {
         toast({ title: t.errorTitle, description: "Country not found", variant: "destructive" });
         setIsSubmitting(false);
@@ -245,11 +256,11 @@ export default function LocationManagementPage() {
     return !listingsSnapshot.empty;
   };
 
-  const handleDeleteCountry = async (countryId: string, countryName: string) => {
+  const handleDeleteCountry = async (countryId: string, countryName: string) => { // countryId is slug
     if (window.confirm(t.deleteCountryConfirm(countryName))) {
       setIsSubmitting(true);
       try {
-        const country = countries.find(c => c.id === countryId);
+        const country = countries.find(c => c.id === countryId); // c.id is slug
         const governorateIds = country?.governorates?.map(g => g.id) || [];
         const districtIds = country?.governorates?.flatMap(g => g.districts?.map(d => d.id) || []) || [];
         
@@ -263,7 +274,7 @@ export default function LocationManagementPage() {
             return;
         }
         
-        await deleteDoc(doc(db, 'locations', countryId));
+        await deleteDoc(doc(db, 'locations', countryId)); // countryId is slug
         toast({ title: t.successTitle, description: t.itemDeletedSuccess(countryName, language === 'ar' ? 'الدولة' : 'Country') });
       } catch (error) {
         console.error("Error deleting country: ", error);
@@ -274,10 +285,10 @@ export default function LocationManagementPage() {
     }
   };
   
-  const handleDeleteGovernorate = async (countryId: string, governorate: LocationGovernorate) => {
+  const handleDeleteGovernorate = async (countryId: string, governorate: LocationGovernorate) => { // countryId is slug
      if (window.confirm(t.deleteConfirm(governorate.name, language === 'ar' ? 'المحافظة' : 'governorate'))) {
       setIsSubmitting(true);
-      const countryDocRef = doc(db, 'locations', countryId);
+      const countryDocRef = doc(db, 'locations', countryId); // countryId is slug
       try {
         const districtIds = governorate.districts?.map(d => d.id) || [];
         const governorateAssociated = await checkListingsAssociation([governorate.id], 'locationGovernorate');
@@ -289,7 +300,7 @@ export default function LocationManagementPage() {
             return;
         }
 
-        const country = countries.find(c => c.id === countryId);
+        const country = countries.find(c => c.id === countryId); // c.id is slug
         if (!country) { throw new Error("Country not found"); }
         const updatedGovernorates = country.governorates?.filter(g => g.id !== governorate.id) || [];
 
@@ -306,10 +317,10 @@ export default function LocationManagementPage() {
     }
   };
 
-  const handleDeleteDistrict = async (countryId: string, governorateId: string, district: LocationDistrict) => {
+  const handleDeleteDistrict = async (countryId: string, governorateId: string, district: LocationDistrict) => { // countryId is slug
     if (window.confirm(t.deleteConfirm(district.name, language === 'ar' ? 'المنطقة' : 'district'))) {
         setIsSubmitting(true);
-        const countryDocRef = doc(db, 'locations', countryId);
+        const countryDocRef = doc(db, 'locations', countryId); // countryId is slug
         try {
             const districtAssociated = await checkListingsAssociation([district.id], 'locationDistrict');
             if (districtAssociated) {
@@ -318,7 +329,7 @@ export default function LocationManagementPage() {
                 return;
             }
 
-            const country = countries.find(c => c.id === countryId);
+            const country = countries.find(c => c.id === countryId); // c.id is slug
             if (!country) throw new Error("Country not found");
             
             const updatedGovernorates = [...(country.governorates || [])];
@@ -391,7 +402,7 @@ export default function LocationManagementPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {countries.map((country) => (
+              {countries.map((country) => ( // country.id is now the slug
                 <Card key={country.id} className="overflow-hidden">
                   <CardHeader className="flex flex-row items-center justify-between p-4 bg-muted/50 cursor-pointer hover:bg-muted/70" onClick={() => toggleExpandCountry(country.id)}>
                     <div className="flex items-center">
@@ -498,3 +509,4 @@ export default function LocationManagementPage() {
     </div>
   );
 }
+
