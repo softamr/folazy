@@ -232,6 +232,7 @@ export function Header() {
 
             'cars': 'سيارات',
             'cars for sale': 'سيارات للبيع',
+            'cars for rent': 'سيارات للإيجار',
             'motorcycles': 'دراجات نارية',
             'auto accessories': 'اكسسوارات سيارات',
             'heavy vehicles': 'مركبات ثقيلة',
