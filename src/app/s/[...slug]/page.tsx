@@ -62,6 +62,9 @@ async function fetchFilteredListingsClient(
   }
 
   const listingsRef = collection(db, 'listings');
+  // Base query: always fetch approved listings. 
+  // If no specific category, location, or other filters are applied (e.g., on /s/all-listings with no query params),
+  // this will result in fetching all approved listings.
   let q = firestoreQuery(listingsRef, where('status', '==', 'approved'));
 
   if (filterCategoryId) {
