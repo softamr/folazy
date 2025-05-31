@@ -44,6 +44,7 @@ const translations = {
     chatWithPlaceholder: (name: string) => `Chat with ${name}`,
     regardingListingPlaceholder: (title: string) => `Regarding: ${title}`,
     startTyping: "Start typing to chat...",
+    failedToLoadNewChatDetails: "Failed to load details for the new chat.",
   },
   ar: {
     loadingMessages: "جار تحميل الرسائل...",
@@ -70,6 +71,7 @@ const translations = {
     chatWithPlaceholder: (name: string) => `محادثة مع ${name}`,
     regardingListingPlaceholder: (title: string) => `بخصوص: ${title}`,
     startTyping: "ابدأ الكتابة للدردشة...",
+    failedToLoadNewChatDetails: "فشل تحميل تفاصيل المحادثة الجديدة.",
   }
 };
 
@@ -84,17 +86,17 @@ export default function MessagesPage() {
   const listingIdParam = searchParams.get('listingId');
   const recipientIdParam = searchParams.get('recipientId');
 
-  const [currentUser, setCurrentUser] = useState<UserType | undefined>(undefined); // undefined means auth state not yet determined
+  const [currentUser, setCurrentUser] = useState<UserType | null | undefined>(undefined);
   const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>(placeholderConversations);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<MessageType[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(true); // Global loading for the page
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingNewConvoDetails, setIsFetchingNewConvoDetails] = useState(false);
   
   useEffect(() => {
-    // This effect handles Firebase authentication state
-    setIsLoading(true); // Start loading when checking auth
+    setIsLoading(true);
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setFirebaseAuthUser(user);
@@ -117,40 +119,46 @@ export default function MessagesPage() {
         } catch (error) {
           console.error("Error fetching user document for messages:", error);
           toast({ title: t.errorTitle, description: t.failedToLoadProfile, variant: "destructive" });
-          setCurrentUser(null); // Explicitly null on error
+          setCurrentUser(null);
         }
       } else {
         setFirebaseAuthUser(null);
-        setCurrentUser(null); // Explicitly null if no user
+        setCurrentUser(null);
       }
-      // setIsLoading(false); // Auth check done, conversation logic will handle final isLoading
+      // setIsLoading(false); // Defer to conversation logic
     });
     return () => unsubscribeAuth();
   }, [toast, t]);
 
 
   useEffect(() => {
-    // This effect handles conversation selection and creation based on URL params and currentUser
-    // It should only run meaningfully after currentUser state is determined.
-
     if (currentUser === undefined) { // Auth state still being determined
-      // setIsLoading(true); // already true from auth effect or initial state
+      setIsLoading(true);
       return;
     }
-
     if (currentUser === null) { // User is not logged in
-      setIsLoading(false); // Stop loading, UI will show login prompt
-      setSelectedConversation(null); // Ensure no conversation is selected
+      setIsLoading(false);
+      setSelectedConversation(null);
       return;
     }
 
     // At this point, currentUser is a UserType object (user is logged in)
-    let targetConversation: Conversation | null = null;
-
+    
     if (conversationIdParam) {
-      targetConversation = conversations.find(c => c.id === conversationIdParam) || null;
-      // TODO: If not found in local state, fetch from Firestore if this page should support deep-linking to any convo
-    } else if (listingIdParam && recipientIdParam && currentUser) {
+      const target = conversations.find(c => c.id === conversationIdParam);
+      if (target) {
+        setSelectedConversation(target);
+        setMessages(placeholderMessagesForConversation[target.id] || []);
+      } else {
+        // If conversationIdParam is present but not found, clear selection or fetch if that's desired.
+        // For now, clearing selection if not found in local placeholder.
+        setSelectedConversation(null);
+      }
+      setIsLoading(false);
+      return;
+    }
+    
+    if (listingIdParam && recipientIdParam && currentUser) {
       const existingConvo = conversations.find(c => 
         c.listingId === listingIdParam && 
         c.participants.some(p => p.id === recipientIdParam) &&
@@ -158,63 +166,88 @@ export default function MessagesPage() {
       );
 
       if (existingConvo) {
-        targetConversation = existingConvo;
+        setSelectedConversation(existingConvo);
+        setMessages(placeholderMessagesForConversation[existingConvo.id] || []);
+        setIsLoading(false);
+        return;
       } else {
-        // Create a shell for a new conversation to "open the form"
-        const tempRecipient: UserType = { 
-            id: recipientIdParam, 
-            name: t.unknownUser, // Will be placeholder, real data fetch is a TODO
-            email: '', avatarUrl: '', joinDate: new Date().toISOString(), isAdmin: false 
-        };
-        // Fetching actual listing title is a TODO, using placeholder for now
-        const tempListingTitle = `${t.reListingPrefix} ${listingIdParam.substring(0,10)}...`; 
-        const newConvoId = `new_${currentUser.id}_${recipientIdParam}_${listingIdParam}`; // Unique temp ID
+        // New conversation: Fetch details
+        const fetchNewConvoDetails = async () => {
+          setIsFetchingNewConvoDetails(true);
+          setIsLoading(true); // Ensure global loading is active
+          try {
+            const recipientDocRef = doc(db, "users", recipientIdParam);
+            const listingDocRef = doc(db, "listings", listingIdParam);
 
-        targetConversation = {
-            id: newConvoId,
-            listingId: listingIdParam,
-            listingTitle: tempListingTitle,
-            participants: [currentUser, tempRecipient],
-            lastMessage: { 
-               id: `system_init_${newConvoId}`, 
-               conversationId: newConvoId,
-               senderId: 'system', // Indicates a system-generated message or placeholder
-               receiverId: currentUser.id, 
-               text: t.startTyping,
-               timestamp: new Date().toISOString(),
-               isRead: true, // No actual message from other user yet
-           },
-            unreadCount: 0,
+            const [recipientSnap, listingSnap] = await Promise.all([
+              getDoc(recipientDocRef),
+              getDoc(listingDocRef),
+            ]);
+
+            const recipientData = recipientSnap.exists()
+              ? { id: recipientSnap.id, ...recipientSnap.data() } as UserType
+              : { id: recipientIdParam, name: t.unknownUser, email: '', avatarUrl: '', joinDate: new Date().toISOString(), isAdmin: false };
+            
+            const listingData = listingSnap.exists()
+              ? { id: listingSnap.id, ...listingSnap.data() } as Listing
+              : null;
+
+            const convoTitle = listingData ? listingData.title : `${t.reListingPrefix} ${listingIdParam.substring(0,10)}...`;
+            const newConvoId = `new_${currentUser.id}_${recipientIdParam}_${listingIdParam}`;
+            
+            const newConversation: Conversation = {
+              id: newConvoId,
+              listingId: listingIdParam,
+              listingTitle: convoTitle,
+              participants: [currentUser, recipientData],
+              lastMessage: {
+                id: `system_init_${newConvoId}`,
+                conversationId: newConvoId,
+                senderId: 'system',
+                receiverId: currentUser.id,
+                text: t.startTyping,
+                timestamp: new Date().toISOString(),
+                isRead: true,
+              },
+              unreadCount: 0,
+            };
+            
+            setConversations(prevConvos => {
+                if (!prevConvos.find(c => c.id === newConversation.id)) {
+                    return [newConversation, ...prevConvos.filter(c => c.id !== newConversation.id)];
+                }
+                return prevConvos;
+            });
+            setSelectedConversation(newConversation);
+            if (!placeholderMessagesForConversation[newConversation.id]) {
+                 placeholderMessagesForConversation[newConversation.id] = newConversation.lastMessage.senderId === 'system' ? [newConversation.lastMessage] : [];
+            }
+            setMessages(placeholderMessagesForConversation[newConversation.id] || []);
+
+          } catch (error) {
+            console.error("Error fetching details for new conversation:", error);
+            toast({ title: t.errorTitle, description: t.failedToLoadNewChatDetails, variant: "destructive" });
+            setSelectedConversation(null); // Clear selection on error
+          } finally {
+            setIsFetchingNewConvoDetails(false);
+            setIsLoading(false);
+          }
         };
         
-        // Add this new shell conversation to the main list if it's not already there by ID
-        if (!conversations.find(c => c.id === targetConversation!.id)) {
-            setConversations(prevConvos => [targetConversation!, ...prevConvos.filter(c => c.id !== targetConversation!.id)]);
-        }
-        // Ensure messages for this new convo are initialized (likely empty or with a system message)
-        if (!placeholderMessagesForConversation[targetConversation.id]) {
-            placeholderMessagesForConversation[targetConversation.id] = targetConversation.lastMessage.senderId === 'system' ? [targetConversation.lastMessage] : [];
-        }
+        fetchNewConvoDetails();
+        return; // Return here as fetchNewConvoDetails handles setting isLoading to false
       }
     }
-
-    if (targetConversation) {
-      setSelectedConversation(targetConversation);
-      setMessages(placeholderMessagesForConversation[targetConversation.id] || []);
-    } else if (!conversationIdParam && !listingIdParam && !recipientIdParam) {
-      // If navigating to /messages without specific params, and a convo was previously selected,
-      // clear it to show the "Select a conversation" prompt.
-      // However, if user just sent a message and URL didn't change, keep it selected.
-      // This needs careful handling based on router.push behavior.
-      // For now, if no params to define a convo, we don't auto-select or clear explicitly here.
-      // Let the UI show "Select conversation" if selectedConversation is null.
-    }
     
-    setIsLoading(false); // All conversation setup logic for this render is done
+    // If no specific conversation is targeted by params, clear selection
+    // This helps when navigating to /messages directly after being in a specific chat.
+    if (!conversationIdParam && !listingIdParam && !recipientIdParam) {
+      setSelectedConversation(null);
+    }
+    setIsLoading(false);
 
-  }, [conversationIdParam, listingIdParam, recipientIdParam, currentUser, conversations, t]);
-  // Note: `conversations` is a dependency. Adding a new shell conversation to it will trigger this effect again.
-  // This is generally okay as it should stabilize.
+  }, [conversationIdParam, listingIdParam, recipientIdParam, currentUser, toast, t]);
+
 
   const handleSendMessage = () => {
     if (!newMessage.trim() || !selectedConversation || !currentUser) return;
@@ -233,10 +266,9 @@ export default function MessagesPage() {
     setMessages(prev => [...prev, msg]);
     
     const updatedConvo = { ...selectedConversation, lastMessage: msg };
-    setSelectedConversation(updatedConvo); // Keep current convo selected
+    setSelectedConversation(updatedConvo);
     setConversations(prevConvos => prevConvos.map(c => c.id === updatedConvo.id ? updatedConvo : c));
     
-    // Update placeholder global store (for demo persistence across selections)
     const currentMessagesForThisConvo = placeholderMessagesForConversation[selectedConversation.id] || [];
     placeholderMessagesForConversation[selectedConversation.id] = [...currentMessagesForThisConvo, msg];
 
@@ -245,11 +277,10 @@ export default function MessagesPage() {
   
   const getOtherParticipant = (convo: Conversation | null): UserType | undefined => {
     if (!convo || !currentUser) return undefined;
-    return convo.participants.find(p => p.id !== currentUser?.id); // currentUser could be undefined during initial renders
+    return convo.participants.find(p => p.id !== currentUser?.id);
   };
 
-
-  if (isLoading || currentUser === undefined) { 
+  if (isLoading || currentUser === undefined || isFetchingNewConvoDetails) { 
      return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-15rem)] py-12">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -258,7 +289,7 @@ export default function MessagesPage() {
      );
   }
   
-  if (!currentUser) { // Check after loading and currentUser determination is complete
+  if (!currentUser) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center border rounded-lg shadow-lg min-h-[calc(100vh-15rem)]">
         <MessageSquareIcon className="h-16 w-16 mb-4 text-muted-foreground" />
@@ -273,7 +304,6 @@ export default function MessagesPage() {
   
   return (
     <div className={`flex flex-col md:flex-row h-[calc(100vh-10rem)] border rounded-lg shadow-lg overflow-hidden ${language === 'ar' ? 'md:flex-row-reverse' : ''}`}>
-      {/* Sidebar for conversations */}
       <Card className={`w-full md:w-1/3 ${selectedConversation && 'hidden md:flex'} md:flex flex-col rounded-none ${language === 'ar' ? 'md:border-l md:rounded-r-lg md:rounded-l-none' : 'md:border-r md:rounded-l-lg md:rounded-r-none'}`}>
         <CardHeader>
           <CardTitle>{t.yourChatsTitle}</CardTitle>
@@ -290,10 +320,7 @@ export default function MessagesPage() {
                 variant="ghost"
                 className={`w-full justify-start p-3 h-auto rounded-none border-b ${selectedConversation?.id === convo.id ? 'bg-muted' : ''}`}
                 onClick={() => {
-                  // setSelectedConversation(null); // Clear selection first if it helps trigger UI update
-                  // setTimeout(() => { // Delay to ensure UI can react if needed
                     router.push(`/messages?conversationId=${convo.id}`);
-                  // }, 0);
                 }}
               >
                 <Avatar className={`h-10 w-10 ${language === 'ar' ? 'ms-3' : 'me-3'}`}>
@@ -303,7 +330,7 @@ export default function MessagesPage() {
                 <div className={`flex-grow ${language === 'ar' ? 'text-right' : 'text-left'}`}>
                   <p className="font-semibold truncate">{getOtherParticipant(convo)?.name || t.unknownUser}</p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {convo.listingTitle ? `${t.reListingPrefix} ${convo.listingTitle}` : t.generalInquiry}
+                    {convo.listingTitle ? `${convo.listingTitle}` : t.generalInquiry}
                   </p>
                   <p className={`text-xs truncate ${convo.unreadCount > 0 && convo.lastMessage.senderId !== currentUser?.id ? 'font-bold text-primary' : 'text-muted-foreground'}`}>
                     {convo.lastMessage.senderId === currentUser?.id ? t.youPrefix : ""}{convo.lastMessage.text}
@@ -320,7 +347,6 @@ export default function MessagesPage() {
         </CardContent>
       </Card>
 
-      {/* Main chat area */}
       <div className={`flex-grow flex-col bg-background ${!selectedConversation && 'hidden md:flex'} ${selectedConversation && 'flex'} ${language === 'ar' ? 'md:rounded-l-lg' : 'md:rounded-r-lg'}`}>
         {!selectedConversation ? (
           <div className="flex-grow flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
@@ -336,8 +362,8 @@ export default function MessagesPage() {
             <CardHeader className="border-b flex-row items-center justify-between p-4">
               <div className="flex items-center">
                  <Button variant="ghost" size="icon" onClick={() => {
-                    setSelectedConversation(null); // This will hide the chat area on mobile
-                    // router.push('/messages'); // Optionally clear query params
+                    setSelectedConversation(null);
+                    router.push('/messages');
                   }} className="md:hidden me-2">
                    <ArrowLeft className="h-5 w-5"/>
                  </Button>
@@ -345,7 +371,7 @@ export default function MessagesPage() {
                   <CardTitle>{getOtherParticipant(selectedConversation)?.name || t.chatWithPlaceholder(t.unknownUser)}</CardTitle>
                   {selectedConversation.listingId && (
                     <CardDescription className="truncate">
-                      {t.regardingLabel} <Link href={`/listings/${selectedConversation.listingId}`} className="text-primary hover:underline">{selectedConversation.listingTitle || t.regardingListingPlaceholder(selectedConversation.listingId)}</Link>
+                      {t.regardingLabel} <Link href={`/listings/${selectedConversation.listingId}`} className="text-primary hover:underline">{selectedConversation.listingTitle || t.regardingListingPlaceholder(selectedConversation.listingId || 'listing')}</Link>
                     </CardDescription>
                   )}
                  </div>
@@ -397,4 +423,3 @@ export default function MessagesPage() {
     </div>
   );
 }
-
