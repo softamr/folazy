@@ -2,30 +2,26 @@
 // src/app/s/[...slug]/page.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback, use } from 'react'; // Added React import
+import React, { useState, useEffect, useCallback, use } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ListingCard } from '@/components/ListingCard';
 import { FilterBar } from '@/components/FilterBar';
-import { placeholderListings } from '@/lib/placeholder-data'; // Still using placeholderListings for data source
 import type { Listing, Category as CategoryType } from '@/lib/types';
-import { ChevronRight, Home, PackageOpen } from 'lucide-react';
+import { ChevronRight, Home, PackageOpen, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/hooks/useLanguage';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query as firestoreQuery, orderBy as firestoreOrderBy } from 'firebase/firestore';
+import { collection, getDocs, query as firestoreQuery, where, orderBy as firestoreOrderBy, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
-// This function will now use live category data for names, but placeholderListings for items.
 async function fetchFilteredListingsClient(
   slug: string[] | undefined,
   filters: { query?: string; minPrice?: string; maxPrice?: string; categoryId?: string; subcategoryId?: string },
-  allFirestoreCategories: CategoryType[] // Pass live categories here
+  allFirestoreCategories: CategoryType[]
 ): Promise<{ listings: Listing[], category?: CategoryType, subcategory?: CategoryType, breadcrumbCategories: CategoryType[] }> {
-  await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
   
-  let currentListings = placeholderListings.filter(l => l.status === 'approved');
   let category: CategoryType | undefined;
   let subcategory: CategoryType | undefined;
   const breadcrumbCategories: CategoryType[] = [];
@@ -58,30 +54,52 @@ async function fetchFilteredListingsClient(
     filterSubcategoryId = slugSubcategory.id;
   }
 
-  // Filter listings
+  // Fetch from Firestore
+  const listingsRef = collection(db, 'listings');
+  let q = firestoreQuery(listingsRef, where('status', '==', 'approved'));
+
   if (filterCategoryId) {
-    currentListings = currentListings.filter(l => l.category.id === filterCategoryId);
-    category = allFirestoreCategories.find(c => c.id === filterCategoryId); // For page title
+    q = firestoreQuery(q, where('category.id', '==', filterCategoryId));
+    category = allFirestoreCategories.find(c => c.id === filterCategoryId);
   }
   if (filterSubcategoryId) {
-    currentListings = currentListings.filter(l => l.subcategory?.id === filterSubcategoryId);
+    q = firestoreQuery(q, where('subcategory.id', '==', filterSubcategoryId));
     if (category && category.subcategories) {
-      subcategory = category.subcategories.find(sc => sc.id === filterSubcategoryId); // For page title
+      subcategory = category.subcategories.find(sc => sc.id === filterSubcategoryId);
     }
   }
-  
+  q = firestoreQuery(q, firestoreOrderBy('postedDate', 'desc'));
+
+  const querySnapshot = await getDocs(q);
+  let fetchedListings: Listing[] = [];
+  querySnapshot.forEach((doc) => {
+    const data = doc.data();
+    let postedDate = data.postedDate;
+    if (postedDate instanceof Timestamp) {
+      postedDate = postedDate.toDate().toISOString();
+    }
+    fetchedListings.push({ 
+        ...data, 
+        id: doc.id, 
+        postedDate,
+        category: data.category || { id: 'unknown', name: 'Unknown' },
+        seller: data.seller || { id: 'unknown', name: 'Unknown Seller', email: '', joinDate: new Date().toISOString() },
+     } as Listing);
+  });
+
+  // Apply client-side filters (text search, price)
   if (filters.query) {
     const lowerQuery = filters.query.toLowerCase();
-    currentListings = currentListings.filter(l => 
-      l.title.toLowerCase().includes(lowerQuery) ||
-      l.description.toLowerCase().includes(lowerQuery)
+    fetchedListings = fetchedListings.filter(l => 
+      (l.title?.toLowerCase() || '').includes(lowerQuery) ||
+      (l.description?.toLowerCase() || '').includes(lowerQuery)
     );
   }
   if (filters.minPrice) {
-    currentListings = currentListings.filter(l => l.price >= Number(filters.minPrice));
+    fetchedListings = fetchedListings.filter(l => l.price >= Number(filters.minPrice));
   }
   if (filters.maxPrice) {
-    currentListings = currentListings.filter(l => l.price <= Number(filters.maxPrice));
+    fetchedListings = fetchedListings.filter(l => l.price <= Number(filters.maxPrice));
   }
   
   // If breadcrumbs are empty but filters were applied, try to populate breadcrumb from filter category
@@ -92,8 +110,7 @@ async function fetchFilteredListingsClient(
     }
   }
 
-
-  return { listings: currentListings.slice(0, 12), category, subcategory, breadcrumbCategories };
+  return { listings: fetchedListings.slice(0, 12), category, subcategory, breadcrumbCategories };
 }
 
 const translations = {
@@ -124,7 +141,7 @@ const translations = {
 };
 
 interface SearchPageProps {
-  params: { slug?: string[] }; // slug can be undefined if route is /s for example
+  params: { slug?: string[] };
 }
 
 export default function SearchPage({ params: paramsProp }: SearchPageProps) {
@@ -164,7 +181,7 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
   }, [toast, t]);
 
   useEffect(() => {
-    if (isLoadingCategories) return; // Don't fetch listings until categories are loaded
+    if (isLoadingCategories) return;
 
     setIsLoadingListings(true);
     const query = clientSearchParams.get('query') || undefined;
@@ -179,9 +196,10 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
       .then(setData)
       .catch(err => {
         console.error("Failed to fetch listings:", err);
+        toast({ title: t.errorTitle, description: "Failed to load listings.", variant: "destructive" });
       })
       .finally(() => setIsLoadingListings(false));
-  }, [slug, clientSearchParams, isLoadingCategories, allCategoriesData]);
+  }, [slug, clientSearchParams, isLoadingCategories, allCategoriesData, toast, t]);
 
   const { listings, category, subcategory, breadcrumbCategories } = data;
 
@@ -191,8 +209,14 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
              'electronics': 'إلكترونيات', 'vehicles': 'مركبات', 'properties': 'عقارات',
              'mobiles': 'هواتف محمولة', 'tablets': 'أجهزة لوحية', 'cars': 'سيارات',
              'apartments for rent': 'شقق للإيجار',
+             'properties for rent': 'عقارات للإيجار', 
+             'properties for sale': 'عقارات للبيع',
+             // Add more specific translations if needed from your Firestore categories
         };
-        return arNames[cat.id.toLowerCase()] || arNames[cat.name.toLowerCase()] || cat.name;
+        // Attempt to translate by ID first, then by English name as a fallback
+        const catIdLower = cat.id?.toLowerCase() || '';
+        const catNameLower = cat.name?.toLowerCase() || '';
+        return arNames[catIdLower] || arNames[catNameLower] || cat.name;
     }
     return cat.name;
   };
@@ -202,7 +226,7 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
   let pageTitle = t.allListings;
   if (!isAllListingsPage && breadcrumbCategories.length > 0) {
     pageTitle = getCategoryNameForDisplay(breadcrumbCategories[breadcrumbCategories.length - 1]);
-  } else if (category) { // Fallback to category from filter if no slug
+  } else if (category) { 
     pageTitle = getCategoryNameForDisplay(category);
     if (subcategory) {
         pageTitle = getCategoryNameForDisplay(subcategory);
@@ -213,9 +237,10 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
   if (isLoadingCategories || isLoadingListings) {
     return (
       <div className="space-y-8">
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1 rtl:space-x-reverse">
           <Skeleton className="h-5 w-12" />
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground rtl:hidden" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground ltr:hidden transform rotate-180" />
           <Skeleton className="h-5 w-24" />
         </div>
         <Skeleton className="h-9 w-1/3 mb-4" />
@@ -231,14 +256,15 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center space-x-1 text-sm text-muted-foreground flex-wrap">
+      <div className="flex items-center space-x-1 rtl:space-x-reverse text-sm text-muted-foreground flex-wrap">
         <Link href="/" className="hover:text-primary flex items-center">
           <Home className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`} /> {t.home}
         </Link>
         {breadcrumbCategories.map((bcCategory, index) => (
           <React.Fragment key={bcCategory.id}>
-            <ChevronRight className="h-4 w-4 mx-1" />
-            {index === breadcrumbCategories.length - 1 && !clientSearchParams.get('subcategoryId') && slug && slug.length -1 === index ? ( // Last item in breadcrumb, not a specific subcat filter
+            <ChevronRight className="h-4 w-4 mx-1 rtl:hidden" />
+            <ChevronRight className="h-4 w-4 mx-1 ltr:hidden transform rotate-180" />
+            {index === breadcrumbCategories.length - 1 && !clientSearchParams.get('subcategoryId') && slug && slug.length -1 === index ? ( 
                 <span>{getCategoryNameForDisplay(bcCategory)}</span>
             ): (
                  <Link href={bcCategory.href || `/s/${breadcrumbCategories.slice(0, index + 1).map(c=>c.id).join('/')}`} className="hover:text-primary">
@@ -249,7 +275,8 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
         ))}
         {isAllListingsPage && breadcrumbCategories.length === 0 && (
             <>
-                <ChevronRight className="h-4 w-4 mx-1" />
+                <ChevronRight className="h-4 w-4 mx-1 rtl:hidden" />
+                <ChevronRight className="h-4 w-4 mx-1 ltr:hidden transform rotate-180" />
                 <span>{t.allListings}</span>
             </>
         )}
@@ -275,8 +302,7 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
         </div>
       )}
 
-      {/* Pagination placeholder */}
-      {listings.length > 0 && ( 
+      {listings.length > 0 && listings.length >= 12 && ( 
         <div className="flex justify-center mt-12 gap-2">
           <Button variant="outline" disabled>{t.previous}</Button>
           <Button variant="outline" disabled>{t.next}</Button>
@@ -299,4 +325,3 @@ function CardSkeleton() {
     </div>
   );
 }
-
