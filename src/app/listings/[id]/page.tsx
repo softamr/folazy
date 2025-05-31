@@ -1,40 +1,70 @@
 
-'use client'; // Converted to Client Component
+'use client';
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { placeholderListings, placeholderUsers } from '@/lib/placeholder-data'; // Kept for fallback/initial structure
 import type { Listing } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CalendarDays, DollarSign, MapPin, Tag, UserCircle, MessageSquare, ArrowLeft, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
+import { CalendarDays, DollarSign, MapPin, Tag, MessageSquare, ArrowLeft, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 import { RecommendationsSection } from '@/components/RecommendationsSection';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // Keep AlertTitle if used
-import { useEffect, useState, use } from 'react'; // Added for client-side fetching and 'use'
-import { useLanguage } from '@/hooks/useLanguage'; // Added for translation
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useEffect, useState, use } from 'react';
+import { useLanguage } from '@/hooks/useLanguage';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useSearchParams } from 'next/navigation';
 
-// Simulate fetching a listing by ID (client-side)
-// In a real app, this would fetch from Firestore using the listing ID
-async function getListingClient(id: string): Promise<Listing | undefined> {
-  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network delay
-  const listing = placeholderListings.find((listing) => listing.id === id);
-  
-  // For demo, if not approved, treat as not found for non-admins
-  // This logic could be more sophisticated, e.g. allow admins to see it with status.
-  if (listing && listing.status !== 'approved') {
-    const isAdmin = placeholderUsers[0]?.isAdmin; // Simulate admin check
-    if (!isAdmin) return undefined;
+async function getListingFromFirestore(id: string, isAdminViewing: boolean = false): Promise<Listing | undefined> {
+  try {
+    const listingDocRef = doc(db, 'listings', id);
+    const listingDocSnap = await getDoc(listingDocRef);
+
+    if (!listingDocSnap.exists()) {
+      return undefined;
+    }
+
+    const data = listingDocSnap.data() as Omit<Listing, 'id'>;
+
+    let postedDate = data.postedDate;
+    if (postedDate && typeof postedDate !== 'string' && 'toDate' in postedDate) {
+      postedDate = (postedDate as unknown as Timestamp).toDate().toISOString();
+    }
+
+    const listing: Listing = {
+      id: listingDocSnap.id,
+      ...data,
+      postedDate: postedDate as string,
+      category: data.category || { id: 'unknown', name: 'Unknown' },
+      seller: data.seller || {
+        id: 'unknown_seller',
+        name: 'Unknown Seller',
+        email: '',
+        avatarUrl: '',
+        joinDate: new Date().toISOString(),
+        isAdmin: false,
+      },
+      images: data.images || [], // Ensure images is always an array
+    };
+
+    if (!isAdminViewing && listing.status !== 'approved' && listing.status !== 'sold') {
+      return undefined;
+    }
+    return listing;
+
+  } catch (error) {
+    console.error("Error fetching listing from Firestore:", error);
+    return undefined;
   }
-  return listing;
 }
 
 const translations = {
   en: {
     backToListings: "Back to Listings",
     listingNotFoundTitle: "Listing not found",
-    listingNotFoundDescription: "The listing you are looking for does not exist, has been removed, or is pending review.",
+    listingNotFoundDescription: "The listing you are looking for does not exist, has been removed, or is not currently available.",
     goToHomepage: "Go to Homepage",
     adminViewAlert: "Admin View:",
     statusPendingAlert: "This listing is currently <strong>pending</strong>. It is not visible to the public.",
@@ -49,7 +79,7 @@ const translations = {
   ar: {
     backToListings: "العودة إلى الإعلانات",
     listingNotFoundTitle: "الإعلان غير موجود",
-    listingNotFoundDescription: "الإعلان الذي تبحث عنه غير موجود، أو تم حذفه، أو قيد المراجعة.",
+    listingNotFoundDescription: "الإعلان الذي تبحث عنه غير موجود، أو تم حذفه، أو غير متاح حالياً.",
     goToHomepage: "الذهاب إلى الصفحة الرئيسية",
     adminViewAlert: "عرض المسؤول:",
     statusPendingAlert: "هذا الإعلان حاليًا <strong>قيد الانتظار</strong>. وهو غير مرئي للعامة.",
@@ -67,27 +97,34 @@ interface ListingPageProps {
   params: { id: string };
 }
 
-export default function ListingPage({ params }: ListingPageProps) {
-  const resolvedParams = use(params); // Resolve the params promise
+export default function ListingPage({ params: paramsProp }: ListingPageProps) {
+  const resolvedParams = use(paramsProp);
   const { id: listingId } = resolvedParams;
+  const searchParams = useSearchParams();
 
   const { language } = useLanguage();
   const t = translations[language];
   const [listing, setListing] = useState<Listing | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdminViewingState, setIsAdminViewingState] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
-    getListingClient(listingId)
+    const adminViewParam = searchParams.get('admin_view') === 'true';
+    setIsAdminViewingState(adminViewParam);
+
+    getListingFromFirestore(listingId, adminViewParam)
       .then(data => {
         setListing(data);
-        setIsLoading(false);
       })
       .catch(error => {
         console.error("Failed to fetch listing:", error);
+        setListing(undefined);
+      })
+      .finally(() => {
         setIsLoading(false);
       });
-  }, [listingId]);
+  }, [listingId, searchParams]);
 
   if (isLoading) {
     return (
@@ -110,12 +147,10 @@ export default function ListingPage({ params }: ListingPageProps) {
     );
   }
 
-  const seller = listing.seller || placeholderUsers[0]; // Fallback seller
-  const categoryPath = listing.subcategory 
-    ? `${listing.category.name} > ${listing.subcategory.name}` 
+  const seller = listing.seller;
+  const categoryPath = listing.subcategory
+    ? `${listing.category.name} > ${listing.subcategory.name}`
     : listing.category.name;
-  
-  const isAdminViewing = placeholderUsers[0]?.isAdmin; // Simulate admin check
 
   return (
     <div className="max-w-4xl mx-auto py-8">
@@ -126,14 +161,14 @@ export default function ListingPage({ params }: ListingPageProps) {
         </Link>
       </Button>
 
-      {isAdminViewing && listing.status !== 'approved' && (
-        <Alert 
-          variant={listing.status === 'pending' ? 'default' : 'destructive'} 
+      {isAdminViewingState && (listing.status === 'pending' || listing.status === 'rejected') && (
+        <Alert
+          variant={listing.status === 'pending' ? 'default' : 'destructive'}
           className={`mb-4 ${listing.status === 'pending' ? 'bg-yellow-100 border-yellow-400 text-yellow-700 dark:bg-yellow-900 dark:border-yellow-600 dark:text-yellow-300' : ''}`}
         >
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            {t.adminViewAlert} 
+            {t.adminViewAlert}
             {listing.status === 'pending' && <span dangerouslySetInnerHTML={{ __html: t.statusPendingAlert }} />}
             {listing.status === 'rejected' && <span dangerouslySetInnerHTML={{ __html: t.statusRejectedAlert }} />}
           </AlertDescription>
@@ -150,10 +185,10 @@ export default function ListingPage({ params }: ListingPageProps) {
         <CardHeader className="p-0">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-1 bg-muted/20">
             {listing.images.slice(0, 4).map((src, index) => (
-              <div 
-                key={index} 
-                className={`relative aspect-video overflow-hidden 
-                  ${index === 0 && listing.images.length > 1 ? 'md:col-span-2 md:aspect-[16/7]' : 'aspect-square md:aspect-video'} 
+              <div
+                key={index}
+                className={`relative aspect-video overflow-hidden
+                  ${index === 0 && listing.images.length > 1 ? 'md:col-span-2 md:aspect-[16/7]' : 'aspect-square md:aspect-video'}
                   ${listing.images.length === 1 ? 'md:col-span-2 md:aspect-[16/7]' : ''}
                   ${listing.images.length === 2 && index === 0 ? 'md:col-span-1' : ''}
                   ${listing.images.length === 2 && index === 1 ? 'md:col-span-1' : ''}
@@ -238,4 +273,3 @@ export default function ListingPage({ params }: ListingPageProps) {
     </div>
   );
 }
-
