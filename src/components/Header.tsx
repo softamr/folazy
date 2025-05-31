@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal, Menu, X, MessageSquare, ListChecks, Settings, ShieldCheck, Globe, LogOut as LogOutIcon, HelpCircle } from 'lucide-react';
+import { MapPin, Search, ChevronDown, LogIn, UserCircle, MoreHorizontal, Menu, X, MessageSquare, ListChecks, Settings, ShieldCheck, Globe, LogOut as LogOutIcon, HelpCircle, LayoutGrid } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons/Logo';
@@ -46,6 +46,7 @@ const translations = {
     more: 'More',
     topCategories: 'Top Categories',
     allCategories: 'All Categories',
+    browseAllListings: 'Browse All Listings',
     arabic: 'العربية',
     english: 'English',
     profile: 'Profile',
@@ -67,6 +68,7 @@ const translations = {
     more: 'المزيد',
     topCategories: 'أهم الفئات',
     allCategories: 'جميع الفئات',
+    browseAllListings: 'تصفح كل الإعلانات',
     arabic: 'العربية',
     english: 'English',
     profile: 'الملف الشخصي',
@@ -394,6 +396,10 @@ export function Header() {
           <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}><Logo /></Link>
         </div>
         <nav className="flex-grow p-4 space-y-1 overflow-y-auto">
+          <NavLink href="/s/all-listings" className="w-full justify-start">
+            <LayoutGrid className="h-4 w-4 me-2" /> {t.browseAllListings}
+          </NavLink>
+          <DropdownMenuSeparator className="my-2"/>
           <h3 className="font-semibold text-sm px-2 text-muted-foreground">{t.topCategories}</h3>
           {isLoadingCategories ? Array.from({length:3}).map((_,i) => <Skeleton key={i} className="h-8 w-full my-1"/>) : 
             mainSiteCategories.map((item) => renderCategoryWithSubcategories(item, true))
@@ -494,7 +500,12 @@ export function Header() {
       {/* Main Navigation Bar */}
       <div className="bg-secondary border-t border-b border-border hidden md:block">
         <div className="container mx-auto px-4 h-12 flex items-center justify-start md:justify-center space-x-1 md:space-x-3 overflow-x-auto">
-          {isLoadingCategories ? Array.from({length:MAX_SECONDARY_NAV_CATEGORIES}).map((_,i)=><Skeleton key={i} className="h-8 w-28"/>) :
+           {isLoadingCategories ? <Skeleton className="h-8 w-36"/> : (
+            <NavLink href="/s/all-listings" className="flex items-center">
+              <LayoutGrid className="h-4 w-4 me-1" /> {t.browseAllListings}
+            </NavLink>
+           )}
+          {isLoadingCategories ? Array.from({length:MAX_SECONDARY_NAV_CATEGORIES -1}).map((_,i)=><Skeleton key={i} className="h-8 w-28"/>) :
           <>
             {secondaryNavCategories.map((item) => renderCategoryWithSubcategories(item, false))}
             {moreCategories.length > 0 && (
