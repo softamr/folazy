@@ -220,10 +220,10 @@ export function Header() {
             'books, sports & hobbies': 'كتب، رياضة وهوايات',
             'services': 'خدمات',
             'business & industrial': 'أعمال وصناعة',
-            'businesses & industrial': 'أعمال وصناعة', // Added for plural form
+            'businesses & industrial': 'أعمال وصناعة',
 
             // Subcategories (by ID or English name as fallback)
-            'mobiles': 'هواتف محمولة', // often used as id
+            'mobiles': 'هواتف محمولة', 
             'mobile phones': 'هواتف محمولة',
             'tablets': 'أجهزة لوحية',
             'laptops': 'لابتوبات',
@@ -231,6 +231,7 @@ export function Header() {
             'phones & tablets': 'الهواتف والأجهزة اللوحية',
 
             'cars': 'سيارات',
+            'cars for sale': 'سيارات للبيع',
             'motorcycles': 'دراجات نارية',
             'auto accessories': 'اكسسوارات سيارات',
             'heavy vehicles': 'مركبات ثقيلة',
@@ -243,7 +244,7 @@ export function Header() {
 
             'accounting': 'محاسبة',
             'sales': 'مبيعات',
-            'it': 'تكنولوجيا المعلومات', // common id 'it'
+            'it': 'تكنولوجيا المعلومات', 
 
             'sofas': 'أرائك',
             'beds': 'أسرة',
@@ -271,7 +272,7 @@ export function Header() {
 
             'office equipment': 'معدات مكتبية',
             'heavy machinery': 'معدات ثقيلة',
-            'supplies': 'لوازم أعمال', // general term
+            'supplies': 'لوازم أعمال',
         };
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
@@ -551,3 +552,4 @@ export function Header() {
     </header>
   );
 }
+
