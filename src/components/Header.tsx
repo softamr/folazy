@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -42,7 +43,6 @@ const translations = {
     findPlaceholder: 'Find Cars, Mobile Phones and more...',
     egypt: 'Egypt',
     uae: 'UAE',
-    // Static category names removed as dynamic ones will be translated by getCategoryName
     more: 'More',
     topCategories: 'Top Categories',
     allCategories: 'All Categories',
@@ -64,7 +64,6 @@ const translations = {
     findPlaceholder: 'ابحث عن سيارات، هواتف والمزيد...',
     egypt: 'مصر',
     uae: 'الإمارات',
-    // Static category names removed
     more: 'المزيد',
     topCategories: 'أهم الفئات',
     allCategories: 'جميع الفئات',
@@ -194,32 +193,71 @@ export function Header() {
 
   const getCategoryName = useCallback((category: Category): string => {
     if (language === 'ar') {
-        // This is a small, hardcoded lookup for demonstration.
-        // A real app should fetch translations from the DB or a dedicated i18n system.
         const arNames: Record<string, string> = {
-            // Main Categories (IDs or English names)
+            // Main Categories
             'electronics': 'إلكترونيات',
             'vehicles': 'مركبات',
             'properties': 'عقارات',
             'jobs': 'وظائف',
-            'furniture & home decor': 'أثاث وديكور', // Example assuming name from DB
+            'furniture & home decor': 'أثاث وديكور منزلي',
             'fashion & beauty': 'أزياء وجمال',
             'pets': 'حيوانات أليفة',
-            'kids & babies': 'أطفال ورضع',
+            'kids & babies': 'مستلزمات أطفال ورضع',
             'books, sports & hobbies': 'كتب، رياضة وهوايات',
             'services': 'خدمات',
             'business & industrial': 'أعمال وصناعة',
-            // Subcategories (IDs or English names, ensure they are unique enough or use a different lookup)
+
+            // Subcategories (by ID or English name as fallback)
+            'mobiles': 'هواتف محمولة', // often used as id
             'mobile phones': 'هواتف محمولة',
             'tablets': 'أجهزة لوحية',
+            'laptops': 'لابتوبات',
+            'cameras': 'كاميرات',
+            'phones & tablets': 'الهواتف والأجهزة اللوحية',
+
             'cars': 'سيارات',
             'motorcycles': 'دراجات نارية',
+            'auto accessories': 'اكسسوارات سيارات',
+            'heavy vehicles': 'مركبات ثقيلة',
+
             'apartments for rent': 'شقق للإيجار',
             'villas for sale': 'فلل للبيع',
-            'phones & tablets': 'الهواتف والأجهزة اللوحية', 
+            'commercial for rent': 'تجاري للإيجار',
+            'properties for rent': 'عقارات للإيجار',
+            'properties for sale': 'عقارات للبيع',
+
+            'accounting': 'محاسبة',
+            'sales': 'مبيعات',
+            'it': 'تكنولوجيا المعلومات', // common id 'it'
+
+            'sofas': 'أرائك',
+            'beds': 'أسرة',
+            'home accessories': 'اكسسوارات منزلية',
+
+            'clothing': 'ملابس',
+            'shoes': 'أحذية',
+            'jewelry': 'مجوهرات',
+
+            'dogs': 'كلاب',
+            'cats': 'قطط',
+            'birds': 'طيور',
+
+            'toys': 'ألعاب',
+            'strollers': 'عربات أطفال',
+            'baby gear': 'مستلزمات أطفال',
+
+            'books': 'كتب',
+            'sports equipment': 'معدات رياضية',
+            'musical instruments': 'آلات موسيقية',
+
+            'cleaning': 'تنظيف',
+            'tutoring': 'دروس خصوصية',
+            'repair': 'تصليح',
+
+            'office equipment': 'معدات مكتبية',
+            'heavy machinery': 'معدات ثقيلة',
+            'supplies': 'لوازم أعمال', // general term
         };
-        // Attempt to translate by ID first (more reliable if IDs are consistent)
-        // then by English name as a fallback. Convert to lowercase for case-insensitive matching.
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
 
@@ -229,7 +267,7 @@ export function Header() {
         if (arNames[categoryNameLower]) {
             return arNames[categoryNameLower];
         }
-        return category.name; // Default to original name if no translation found
+        return category.name; 
     }
     return category.name;
   }, [language]);
@@ -480,3 +518,4 @@ export function Header() {
     </header>
   );
 }
+
