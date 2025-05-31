@@ -17,6 +17,7 @@ export interface Category {
   id: string; // Firestore document ID for main categories, or a generated ID/slug for subcategories
   name: string;
   iconName?: string; // Name of the Lucide icon (e.g., "Car", "Laptop")
+  order?: number; // For reordering main categories
   subcategories?: Category[]; // Array of subcategory objects. Subcategories here won't have their own 'subcategories' array.
   href?: string; // Optional: if we want to override default /s/:id route
 }

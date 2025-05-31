@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2, PackageOpen, ListOrdered, Tags, X } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2, PackageOpen, ListOrdered, Tags, X, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import * as Icons from 'lucide-react';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -23,7 +23,7 @@ const generateSlug = (name: string) => {
 const translations = {
   en: {
     pageTitle: "Category Management",
-    pageDescription: "Add, view, and manage main categories and their subcategories.",
+    pageDescription: "Add, view, and manage main categories and their subcategories. Drag to reorder main categories.",
     addMainCategoryTitle: "Add New Main Category",
     categoryNameLabel: "Category Name",
     categoryNamePlaceholder: "e.g., Electronics",
@@ -35,6 +35,8 @@ const translations = {
     noCategoriesYet: "No categories created yet.",
     addSubcategoryButton: "Add Subcategory",
     deleteCategoryButtonSr: "Delete Category",
+    moveCategoryUpSr: "Move Category Up",
+    moveCategoryDownSr: "Move Category Down",
     addSubcategoryToTitle: (name: string) => `Add Subcategory to "${name}"`,
     subcategoryNameLabel: "Subcategory Name",
     subcategoryNamePlaceholder: "e.g., Mobile Phones",
@@ -62,10 +64,12 @@ const translations = {
     deletionBlockedTitle: "Deletion Blocked",
     deletionBlockedCategoryDesc: (name: string) => `Cannot delete category "${name}" as it or its subcategories are associated with existing listings.`,
     deletionBlockedSubcategoryDesc: (name: string) => `Cannot delete subcategory "${name}" as it's associated with existing listings.`,
+    categoryOrderUpdated: "Category order updated.",
+    couldNotUpdateOrder: "Could not update category order.",
   },
   ar: {
     pageTitle: "إدارة الفئات",
-    pageDescription: "إضافة وعرض وإدارة الفئات الرئيسية والفئات الفرعية.",
+    pageDescription: "إضافة وعرض وإدارة الفئات الرئيسية والفئات الفرعية. اسحب لإعادة ترتيب الفئات الرئيسية.",
     addMainCategoryTitle: "إضافة فئة رئيسية جديدة",
     categoryNameLabel: "اسم الفئة",
     categoryNamePlaceholder: "مثال: إلكترونيات",
@@ -77,6 +81,8 @@ const translations = {
     noCategoriesYet: "لم يتم إنشاء فئات بعد.",
     addSubcategoryButton: "إضافة فئة فرعية",
     deleteCategoryButtonSr: "حذف الفئة",
+    moveCategoryUpSr: "نقل الفئة لأعلى",
+    moveCategoryDownSr: "نقل الفئة لأسفل",
     addSubcategoryToTitle: (name: string) => `إضافة فئة فرعية إلى "${name}"`,
     subcategoryNameLabel: "اسم الفئة الفرعية",
     subcategoryNamePlaceholder: "مثال: هواتف محمولة",
@@ -104,6 +110,8 @@ const translations = {
     deletionBlockedTitle: "تم حظر الحذف",
     deletionBlockedCategoryDesc: (name: string) => `لا يمكن حذف الفئة "${name}" لأنها أو فئاتها الفرعية مرتبطة بإعلانات موجودة.`,
     deletionBlockedSubcategoryDesc: (name: string) => `لا يمكن حذف الفئة الفرعية "${name}" لأنها مرتبطة بإعلانات موجودة.`,
+    categoryOrderUpdated: "تم تحديث ترتيب الفئات.",
+    couldNotUpdateOrder: "لم نتمكن من تحديث ترتيب الفئات.",
   }
 };
 
@@ -132,7 +140,17 @@ export default function CategoryManagementPage() {
       querySnapshot.forEach((docSnapshot) => {
         fetchedCategories.push({ id: docSnapshot.id, ...docSnapshot.data() } as Category);
       });
-      setCategories(fetchedCategories.sort((a, b) => a.name.localeCompare(b.name)));
+      // Sort by 'order' field, then by name as a fallback
+      setCategories(
+        fetchedCategories.sort((a, b) => {
+          const orderA = a.order ?? Infinity;
+          const orderB = b.order ?? Infinity;
+          if (orderA === orderB) {
+            return a.name.localeCompare(b.name);
+          }
+          return orderA - orderB;
+        })
+      );
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching categories: ", error);
@@ -148,9 +166,12 @@ export default function CategoryManagementPage() {
       return;
     }
     setIsSubmitting(true);
-    const categoryData: { name: string; iconName?: string; subcategories: Category[] } = {
+    const newOrder = categories.length > 0 ? Math.max(...categories.map(c => c.order || 0)) + 1 : 0;
+
+    const categoryData: Omit<Category, 'id'> = {
         name: newCategoryName.trim(),
-        subcategories: []
+        subcategories: [],
+        order: newOrder,
     };
     const trimmedIconName = newCategoryIconName.trim();
     if (trimmedIconName) {
@@ -256,6 +277,50 @@ export default function CategoryManagementPage() {
     }
   };
 
+  const handleMoveCategory = async (currentIndex: number, direction: 'up' | 'down') => {
+    setIsSubmitting(true);
+    const newCategories = [...categories];
+    const categoryToMove = newCategories[currentIndex];
+    let otherCategoryIndex = -1;
+
+    if (direction === 'up' && currentIndex > 0) {
+      otherCategoryIndex = currentIndex - 1;
+    } else if (direction === 'down' && currentIndex < newCategories.length - 1) {
+      otherCategoryIndex = currentIndex + 1;
+    }
+
+    if (otherCategoryIndex === -1) {
+      setIsSubmitting(false);
+      return;
+    }
+
+    const otherCategory = newCategories[otherCategoryIndex];
+
+    // Swap order values
+    const tempOrder = categoryToMove.order;
+    categoryToMove.order = otherCategory.order;
+    otherCategory.order = tempOrder;
+
+    try {
+      const batch = writeBatch(db);
+      const docRefMove = doc(db, 'categories', categoryToMove.id);
+      const docRefOther = doc(db, 'categories', otherCategory.id);
+      batch.update(docRefMove, { order: categoryToMove.order });
+      batch.update(docRefOther, { order: otherCategory.order });
+      await batch.commit();
+      toast({ title: t.successTitle, description: t.categoryOrderUpdated });
+      // The onSnapshot listener will automatically update the local 'categories' state and re-sort.
+    } catch (error) {
+      console.error("Error updating category order: ", error);
+      toast({ title: t.errorTitle, description: t.couldNotUpdateOrder, variant: "destructive" });
+      // Revert local changes if Firestore update fails (though onSnapshot would eventually correct it)
+      categoryToMove.order = otherCategory.order; // Original value of categoryToMove.order
+      otherCategory.order = tempOrder; // Original value of otherCategory.order
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const toggleExpandCategory = (categoryId: string) => {
     setExpandedCategories(prev => ({ ...prev, [categoryId]: !prev[categoryId] }));
   };
@@ -329,15 +394,42 @@ export default function CategoryManagementPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {categories.map((category) => (
+              {categories.map((category, index) => (
                 <Card key={category.id} className="overflow-hidden">
-                  <CardHeader className="flex flex-row items-center justify-between p-4 bg-muted/50 cursor-pointer hover:bg-muted/70" onClick={() => toggleExpandCategory(category.id)}>
-                    <div className="flex items-center">
+                  <CardHeader 
+                    className="flex flex-row items-center justify-between p-4 bg-muted/50"
+                  >
+                    <div 
+                      className="flex items-center flex-grow cursor-pointer hover:bg-muted/70"
+                      onClick={() => toggleExpandCategory(category.id)}
+                    >
                         {expandedCategories[category.id] ? <ChevronDown className="h-5 w-5 me-2"/> : <ChevronRight className="h-5 w-5 me-2"/>}
                         <IconPreview iconName={category.iconName} />
                         <CardTitle className="text-lg">{category.name}</CardTitle>
+                        {/* Display order for debugging, can be removed */}
+                        {/* <span className="text-xs text-muted-foreground ms-2">(Order: {category.order ?? 'N/A'})</span> */}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => { e.stopPropagation(); handleMoveCategory(index, 'up'); }} 
+                            disabled={isSubmitting || index === 0}
+                            title={t.moveCategoryUpSr}
+                        >
+                            <ArrowUpCircle className="h-4 w-4" />
+                            <span className="sr-only">{t.moveCategoryUpSr}</span>
+                        </Button>
+                         <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => { e.stopPropagation(); handleMoveCategory(index, 'down'); }} 
+                            disabled={isSubmitting || index === categories.length - 1}
+                            title={t.moveCategoryDownSr}
+                        >
+                            <ArrowDownCircle className="h-4 w-4" />
+                            <span className="sr-only">{t.moveCategoryDownSr}</span>
+                        </Button>
                         <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setShowSubcategoryFormFor(category.id); setNewSubcategoryName(''); setNewSubcategoryIconName('');}} disabled={isSubmitting}>
                             <PlusCircle className="h-4 w-4 me-1 sm:me-2"/> <span className="hidden sm:inline">{t.addSubcategoryButton}</span>
                         </Button>
@@ -401,3 +493,4 @@ export default function CategoryManagementPage() {
     </div>
   );
 }
+
