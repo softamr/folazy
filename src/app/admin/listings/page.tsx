@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, CheckCircle, XCircle, Hourglass, Eye, Search, Filter, Loader2, PackageOpen, Package } from 'lucide-react'; // Using Package for Sold
+import { MoreHorizontal, Edit, Trash2, CheckCircle, XCircle, Hourglass, Eye, Search, Filter, Loader2, PackageOpen, Package, Star } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -29,7 +29,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 const translations = {
   en: {
     pageTitle: "Listing Management",
-    pageDescription: "Review, approve, or reject user-submitted listings.",
+    pageDescription: "Review, approve, or reject user-submitted listings. Mark listings as featured.",
     addNewListingButton: "Add New Listing (Admin)",
     allListingsCardTitle: "All Listings",
     allListingsCardDesc: (count: number) => `A list of all listings in the system. Found ${count} listings.`,
@@ -47,6 +47,7 @@ const translations = {
     tableHeadSeller: "Seller",
     tableHeadPrice: "Price",
     tableHeadStatus: "Status",
+    tableHeadFeatured: "Featured",
     tableHeadPostedDate: "Posted Date",
     tableHeadActions: "Actions",
     listingActionsSr: "Listing Actions",
@@ -55,6 +56,8 @@ const translations = {
     rejectAction: "Reject",
     markAsPendingAction: "Mark as Pending",
     markAsSoldAction: "Mark as Sold",
+    markAsFeaturedAction: "Mark as Featured",
+    removeFeaturedAction: "Remove Featured",
     viewListingAction: "View Listing",
     editListingAction: "Edit Listing",
     deleteListingAction: "Delete Listing",
@@ -62,8 +65,12 @@ const translations = {
     errorTitle: "Error",
     couldNotFetchListingsError: "Could not fetch listings.",
     statusUpdatedTitle: "Status Updated",
+    listingUpdatedTitle: "Listing Updated",
     statusChangedSuccess: (status: string) => `Listing status changed to ${status}.`,
+    listingFeaturedSuccess: "Listing marked as featured.",
+    listingUnfeaturedSuccess: "Listing removed from featured.",
     couldNotUpdateStatusError: "Could not update listing status.",
+    couldNotUpdateFeaturedError: "Could not update listing's featured status.",
     deleteConfirm: (id: string) => `Are you sure you want to delete listing ${id}? This action cannot be undone.`,
     listingDeletedTitle: "Listing Deleted",
     listingDeletedSuccess: (id: string) => `Listing ${id} has been deleted.`,
@@ -75,7 +82,7 @@ const translations = {
   },
   ar: {
     pageTitle: "إدارة الإعلانات",
-    pageDescription: "مراجعة واعتماد ورفض الإعلانات المقدمة من المستخدمين.",
+    pageDescription: "مراجعة واعتماد ورفض الإعلانات المقدمة من المستخدمين. تحديد الإعلانات كمميزة.",
     addNewListingButton: "إضافة إعلان جديد (مسؤول)",
     allListingsCardTitle: "جميع الإعلانات",
     allListingsCardDesc: (count: number) => `قائمة بجميع الإعلانات في النظام. تم العثور على ${count} إعلانات.`,
@@ -93,6 +100,7 @@ const translations = {
     tableHeadSeller: "البائع",
     tableHeadPrice: "السعر",
     tableHeadStatus: "الحالة",
+    tableHeadFeatured: "مميز",
     tableHeadPostedDate: "تاريخ النشر",
     tableHeadActions: "الإجراءات",
     listingActionsSr: "إجراءات الإعلان",
@@ -101,6 +109,8 @@ const translations = {
     rejectAction: "رفض",
     markAsPendingAction: "تحديد كقيد الانتظار",
     markAsSoldAction: "تحديد كمباع",
+    markAsFeaturedAction: "تحديد كمميز",
+    removeFeaturedAction: "إزالة من المميزة",
     viewListingAction: "عرض الإعلان",
     editListingAction: "تعديل الإعلان",
     deleteListingAction: "حذف الإعلان",
@@ -108,8 +118,12 @@ const translations = {
     errorTitle: "خطأ",
     couldNotFetchListingsError: "لم نتمكن من جلب الإعلانات.",
     statusUpdatedTitle: "تم تحديث الحالة",
+    listingUpdatedTitle: "تم تحديث الإعلان",
     statusChangedSuccess: (status: string) => `تم تغيير حالة الإعلان إلى ${status}.`,
+    listingFeaturedSuccess: "تم تحديد الإعلان كمميز.",
+    listingUnfeaturedSuccess: "تمت إزالة الإعلان من المميزة.",
     couldNotUpdateStatusError: "لم نتمكن من تحديث حالة الإعلان.",
+    couldNotUpdateFeaturedError: "لم نتمكن من تحديث حالة تمييز الإعلان.",
     deleteConfirm: (id: string) => `هل أنت متأكد أنك تريد حذف الإعلان ${id}؟ لا يمكن التراجع عن هذا الإجراء.`,
     listingDeletedTitle: "تم حذف الإعلان",
     listingDeletedSuccess: (id: string) => `تم حذف الإعلان ${id}.`,
@@ -149,6 +163,7 @@ export default function ListingManagementPage() {
             postedDate: postedDate,
             category: data.category || { id: 'unknown', name: 'Unknown' },
             seller: data.seller || { id: 'unknown', name: 'Unknown Seller', email: '', joinDate: new Date().toISOString() },
+            isFeatured: data.isFeatured || false,
            } as Listing);
         });
         setListings(fetchedListings);
@@ -171,6 +186,20 @@ export default function ListingManagementPage() {
     } catch (error) {
       console.error("Error updating status: ", error);
       toast({ title: t.errorTitle, description: t.couldNotUpdateStatusError, variant: "destructive" });
+    }
+  };
+
+  const handleToggleFeatured = async (listingId: string, newIsFeatured: boolean) => {
+    const listingRef = doc(db, 'listings', listingId);
+    try {
+      await updateDoc(listingRef, { isFeatured: newIsFeatured });
+      toast({ 
+        title: t.listingUpdatedTitle, 
+        description: newIsFeatured ? t.listingFeaturedSuccess : t.listingUnfeaturedSuccess 
+      });
+    } catch (error) {
+      console.error("Error updating featured status: ", error);
+      toast({ title: t.errorTitle, description: t.couldNotUpdateFeaturedError, variant: "destructive" });
     }
   };
 
@@ -290,6 +319,7 @@ export default function ListingManagementPage() {
                   <TableHead>{t.tableHeadSeller}</TableHead>
                   <TableHead>{t.tableHeadPrice}</TableHead>
                   <TableHead>{t.tableHeadStatus}</TableHead>
+                  <TableHead>{t.tableHeadFeatured}</TableHead>
                   <TableHead>{t.tableHeadPostedDate}</TableHead>
                   <TableHead className={language === 'ar' ? 'text-left' : 'text-right'}>{t.tableHeadActions}</TableHead>
                 </TableRow>
@@ -318,6 +348,9 @@ export default function ListingManagementPage() {
                       <Badge className={getStatusBadgeClasses(listing.status)}>
                         {getStatusText(listing.status)}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {listing.isFeatured && <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />}
                     </TableCell>
                     <TableCell className="text-muted-foreground">{listing.postedDate ? new Date(listing.postedDate).toLocaleDateString() : t.notApplicable}</TableCell>
                     <TableCell className={language === 'ar' ? 'text-left' : 'text-right'}>
@@ -350,6 +383,16 @@ export default function ListingManagementPage() {
                               <DropdownMenuItem onClick={() => handleUpdateStatus(listing.id, 'sold')}>
                                   <Package className="me-2 h-4 w-4 text-blue-500" /> {t.markAsSoldAction}
                               </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          {listing.isFeatured ? (
+                            <DropdownMenuItem onClick={() => handleToggleFeatured(listing.id, false)}>
+                              <Star className="me-2 h-4 w-4 text-muted-foreground" /> {t.removeFeaturedAction}
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => handleToggleFeatured(listing.id, true)}>
+                              <Star className="me-2 h-4 w-4 text-yellow-500" /> {t.markAsFeaturedAction}
+                            </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem asChild>
