@@ -196,12 +196,13 @@ export function Header() {
 
   const handleSearch = (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/s/all-listings?query=${encodeURIComponent(searchQuery.trim())}`);
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) {
+      router.push(`/s/all-listings?query=${encodeURIComponent(trimmedQuery)}`);
     } else {
       router.push(`/s/all-listings`);
     }
-    setSearchQuery(''); // Optionally clear search after submission
+    // setSearchQuery(''); // Clear search after submission - keeping it might be better UX
   };
 
   const getCategoryName = useCallback((category: Category): string => {
@@ -364,11 +365,12 @@ export function Header() {
     return (
         <DropdownMenu>
         <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-            <Avatar className="h-9 w-9">
+            <Button variant="ghost" className="relative h-auto px-2 py-1.5 rounded-md flex flex-col items-center space-y-0.5 group">
+            <Avatar className="h-8 w-8">
                 <AvatarImage src={currentUser?.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser?.name || "User"} data-ai-hint="avatar person"/>
                 <AvatarFallback>{currentUser?.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
+            <span className="text-[10px] leading-tight text-muted-foreground group-hover:text-primary">{t.profile}</span>
             </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
