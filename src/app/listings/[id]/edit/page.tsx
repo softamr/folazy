@@ -56,22 +56,29 @@ export default function EditListingPage() {
     setError(null);
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (authUser) => {
+      let fetchedLocalUser: User | null = null;
+      let userIsAdmin = false;
+
       if (authUser) {
         setFirebaseAuthUser(authUser);
         try {
           const userDocRef = doc(db, "users", authUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            setCurrentUser({ id: userDocSnap.id, ...userDocSnap.data() } as User);
+          const userDocSnapInstance = await getDoc(userDocRef); // Renamed for clarity
+          if (userDocSnapInstance.exists()) {
+            fetchedLocalUser = { id: userDocSnapInstance.id, ...userDocSnapInstance.data() } as User;
+            userIsAdmin = fetchedLocalUser.isAdmin || false;
+            setCurrentUser(fetchedLocalUser);
           } else {
-            // Fallback if user doc not found, though ideally it should exist for logged-in users
-            setCurrentUser({ 
+            fetchedLocalUser = { 
               id: authUser.uid, 
               name: authUser.displayName || "User", 
               email: authUser.email || "", 
               joinDate: new Date().toISOString(), 
               isAdmin: false 
-            });
+            };
+            userIsAdmin = false;
+            setCurrentUser(fetchedLocalUser);
+            console.warn("User document not found for UID:", authUser.uid, "Using basic auth data for edit permission check.");
           }
         } catch (err) {
           console.error("Error fetching user data:", err);
@@ -88,7 +95,7 @@ export default function EditListingPage() {
       }
 
       // Proceed to fetch listing only if authenticated and listingId is present
-      if (listingId && authUser) {
+      if (listingId && authUser) { // authUser is guaranteed non-null if we reached here
         try {
           const listingDocRef = doc(db, 'listings', listingId);
           const listingDocSnap = await getDoc(listingDocRef);
@@ -98,10 +105,8 @@ export default function EditListingPage() {
             
             // Permission Check
             const sellerId = listingData.seller.id;
-            const localCurrentUser = userDocSnap?.exists() ? (userDocSnap.data() as User) : null;
-            const isAdmin = localCurrentUser?.isAdmin || false;
-
-            if (authUser.uid !== sellerId && !isAdmin) {
+            // Use userIsAdmin (derived from userDocSnapInstance) and authUser.uid from the outer scope
+            if (authUser.uid !== sellerId && !userIsAdmin) {
               setError(t.listingNotFoundOrNoPermission);
               setListingToEdit(null);
               setIsLoading(false);
@@ -117,7 +122,6 @@ export default function EditListingPage() {
                 ...listingData, 
                 id: listingDocSnap.id, 
                 postedDate: postedDate as string,
-                // Ensure nested objects have defaults if potentially missing
                 category: listingData.category || { id: 'unknown', name: 'Unknown' },
                 seller: listingData.seller || { id: 'unknown', name: 'Unknown Seller', email: '', joinDate: new Date().toISOString() },
             } as ListingType);
