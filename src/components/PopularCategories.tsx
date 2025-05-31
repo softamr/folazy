@@ -76,6 +76,7 @@ export function PopularCategories() {
             'properties for sale': 'عقارات للبيع',
             'agriculture equipment': 'معدات زراعية',
             'construction equipment': 'معدات بناء',
+            'tv - audio - video': 'تلفزيونات - صوتيات - فيديو',
         };
         const subcategoryIdLower = subcategory.id.toLowerCase();
         const subcategoryNameLower = subcategory.name.toLowerCase();
