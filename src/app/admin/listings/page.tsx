@@ -75,8 +75,6 @@ const translations = {
     listingDeletedTitle: "Listing Deleted",
     listingDeletedSuccess: (id: string) => `Listing ${id} has been deleted.`,
     couldNotDeleteListingError: "Could not delete listing.",
-    editActionToastTitle: "Edit Action",
-    editActionToastDesc: (id: string) => `Editing listing ${id} (not implemented)`,
     untitledListing: "Untitled Listing",
     notApplicable: "N/A",
     currencySymbol: "EGP",
@@ -129,8 +127,6 @@ const translations = {
     listingDeletedTitle: "تم حذف الإعلان",
     listingDeletedSuccess: (id: string) => `تم حذف الإعلان ${id}.`,
     couldNotDeleteListingError: "لم نتمكن من حذف الإعلان.",
-    editActionToastTitle: "إجراء التعديل",
-    editActionToastDesc: (id: string) => `تعديل الإعلان ${id} (غير مطبق)`,
     untitledListing: "إعلان بدون عنوان",
     notApplicable: "غير متاح",
     currencySymbol: "جنيه",
@@ -402,8 +398,10 @@ export default function ListingManagementPage() {
                               <Eye className="me-2 h-4 w-4" /> {t.viewListingAction}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toast({ title: t.editActionToastTitle, description: t.editActionToastDesc(listing.id) })}>
-                            <Edit className="me-2 h-4 w-4" /> {t.editListingAction}
+                          <DropdownMenuItem asChild>
+                            <Link href={`/listings/${listing.id}/edit`}>
+                              <Edit className="me-2 h-4 w-4" /> {t.editListingAction}
+                            </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleDeleteListing(listing.id)}
@@ -424,3 +422,4 @@ export default function ListingManagementPage() {
     </div>
   );
 }
+
