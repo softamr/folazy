@@ -274,6 +274,8 @@ export function Header() {
             'construction equipment': 'معدات بناء',
             'industrial equipment': 'معدات صناعية',
             'medical equipment': 'معدات طبية',
+            'tv - audio - video': 'تلفزيونات - صوتيات - فيديو',
+            'mobile & tablet accessories': 'اكسسوارات موبايل وتابلت',
         };
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
