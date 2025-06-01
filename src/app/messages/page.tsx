@@ -250,7 +250,6 @@ export default function MessagesPage() {
     if (isLoadingAuth || isLoadingConversations) return;
     if (!currentUser) return;
 
-
     if (conversationIdParam) {
       const target = conversations.find(c => c.id === conversationIdParam);
       if (target && (!selectedConversation || selectedConversation.id !== target.id)) {
@@ -268,7 +267,6 @@ export default function MessagesPage() {
           setSelectedConversation(existingConvo);
         }
       } else {
-        
         const createNewConversation = async () => {
           try {
             const recipientDocRef = doc(db, "users", recipientIdParam);
@@ -310,16 +308,14 @@ export default function MessagesPage() {
               lastMessage: { ...newConversationData.lastMessage, timestamp: serverTimestamp() }
             });
             
-            // Optimistically set the selected conversation
             const newConvObjectForState: Conversation = {
               id: deterministicId,
               ...newConversationData,
-              // Use a client-side timestamp for immediate display in lastMessage
               lastMessage: { ...newConversationData.lastMessage, timestamp: new Date().toISOString() } 
             };
             setSelectedConversation(newConvObjectForState);
 
-            router.replace(`/messages?conversationId=${deterministicId}`, undefined, { shallow: true });
+            router.replace(`/messages?conversationId=${deterministicId}`, { shallow: true });
 
           } catch (error) {
             console.error("Error creating new conversation:", error);
@@ -329,11 +325,19 @@ export default function MessagesPage() {
         };
         createNewConversation();
       }
-    } else if (!conversationIdParam && !listingIdParam && selectedConversation) {
+      return;
+    }
+    
+    if (!conversationIdParam && !listingIdParam && selectedConversation) {
       setSelectedConversation(null);
     }
 
-  }, [conversationIdParam, listingIdParam, recipientIdParam, currentUser, conversations, router, toast, t, isLoadingAuth, isLoadingConversations, selectedConversation]);
+  }, [
+    conversationIdParam, listingIdParam, recipientIdParam, 
+    currentUser, conversations, 
+    isLoadingAuth, isLoadingConversations,
+    router, toast, t
+  ]);
 
 
   const handleSendMessage = async () => {
