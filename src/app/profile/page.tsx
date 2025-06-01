@@ -17,8 +17,8 @@ import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, collection, query as firestoreQuery, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
-import { placeholderConversations } from '@/lib/placeholder-data'; // Keep for messages tab for now
+import { useLanguage } from '@/contexts/LanguageContext';
+import { placeholderConversations } from '@/lib/placeholder-data';
 
 const translations = {
   en: {
@@ -73,6 +73,9 @@ const translations = {
     loadingMyListings: "Loading your listings...",
     errorLoadingMyListings: "Could not load your listings. Please try again.",
     errorTitle: "Error",
+    defaultUserName: "User",
+    noEmail: "No email available",
+    phonePlaceholder: "+20 XXX XXX XXXX",
   },
   ar: {
     loadingProfile: "جار تحميل الملف الشخصي...",
@@ -126,6 +129,9 @@ const translations = {
     loadingMyListings: "جار تحميل إعلاناتك...",
     errorLoadingMyListings: "لم نتمكن من تحميل إعلاناتك. يرجى المحاولة مرة أخرى.",
     errorTitle: "خطأ",
+    defaultUserName: "مستخدم",
+    noEmail: "لا يوجد بريد إلكتروني",
+    phonePlaceholder: "+٢٠ XXX XXX XXXX",
   }
 };
 
@@ -176,7 +182,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!currentUser?.id) {
-      setIsLoadingListings(false); // Set to false if no user to prevent indefinite loading
+      setIsLoadingListings(false);
       return;
     }
 
@@ -195,8 +201,7 @@ export default function ProfilePage() {
             ...data, 
             id: docSnapshot.id, 
             postedDate,
-            // Ensure category and seller have fallback defaults if potentially missing
-            category: data.category || { id: 'unknown', name: 'Unknown' }, 
+            category: data.category || { id: 'unknown', name: t.unknownUser }, 
             seller: data.seller || { id: currentUser.id, name: currentUser.name, email: currentUser.email, joinDate: currentUser.joinDate, isAdmin: currentUser.isAdmin },
         } as Listing);
       });
@@ -215,7 +220,6 @@ export default function ProfilePage() {
   }, [currentUser?.id, toast, t]);
 
 
-  // Placeholder for messages tab for now
   const userConversations = currentUser ? placeholderConversations.filter(
     convo => convo.participants.some(p => p.id === currentUser!.id)
   ) : [];
@@ -255,8 +259,8 @@ export default function ProfilePage() {
     );
   }
   
-  const displayName = currentUser?.name || firebaseAuthUser?.displayName || firebaseAuthUser?.email || "User";
-  const displayEmail = currentUser?.email || firebaseAuthUser?.email || "No email";
+  const displayName = currentUser?.name || firebaseAuthUser?.displayName || firebaseAuthUser?.email || t.defaultUserName;
+  const displayEmail = currentUser?.email || firebaseAuthUser?.email || t.noEmail;
   const displayAvatar = currentUser?.avatarUrl || firebaseAuthUser?.photoURL || `https://placehold.co/150x150.png`;
   const joinDate = currentUser?.joinDate || firebaseAuthUser?.metadata.creationTime || new Date().toISOString();
 
@@ -424,7 +428,7 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <Label htmlFor="phone">{t.phoneOptionalLabel}</Label>
-                  <Input id="phone" type="tel" placeholder="+1 (555) 123-4567" />
+                  <Input id="phone" type="tel" placeholder={t.phonePlaceholder} />
                 </div>
                 <Button className="w-full sm:w-auto" onClick={() => toast({title: t.notImplemented}) }><Edit3 className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} />{t.saveChangesButton}</Button>
               </CardContent>

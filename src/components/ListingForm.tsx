@@ -25,13 +25,12 @@ import { useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { addDoc, collection, doc, getDoc, getDocs, query as firestoreQuery, orderBy, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'next/navigation';
 
 
 const translations = {
   en: {
-    // Zod schema messages
     titleMin: "Title must be at least 5 characters",
     titleMax: "Title must be 100 characters or less",
     descriptionMin: "Description must be at least 20 characters",
@@ -40,7 +39,6 @@ const translations = {
     categoryRequired: "Please select a category",
     countryRequired: "Please select a country",
     governorateRequired: "Please select a governorate",
-    // Component text
     createListingTitle: "Create a New Listing",
     createListingDesc: "Fill in the details below to post your item for sale. It will be reviewed by an admin before going live.",
     updateListingTitle: "Edit Listing",
@@ -59,7 +57,6 @@ const translations = {
     subcategoryLabel: "Subcategory",
     selectSubcategoryPlaceholder: (categoryName?: string) => categoryName ? `Select subcategory for ${categoryName}` : "Select a subcategory",
     noSubcategoryOption: "No subcategory / General",
-    
     countryLabel: "Country",
     selectCountryPlaceholder: "Select a country",
     governorateLabel: "Governorate / City",
@@ -68,14 +65,12 @@ const translations = {
     selectDistrictPlaceholder: "Select a district/area",
     noDistrictOption: "No specific district / General area",
     loadingLocations: "Loading locations...",
-
     uploadImagesLabel: "Upload Images",
     uploadImagesDesc: "You can upload multiple images. In edit mode, new uploads will replace existing images (feature not fully implemented for updates yet).",
     submitButton: "Submit for Review",
     submittingButton: "Submitting...",
     updateButton: "Update Listing",
     updatingButton: "Updating...",
-    // Toast messages
     authRequiredTitle: "Authentication Required",
     authRequiredDesc: "You must be logged in to create or edit a listing.",
     categoryNotFoundError: "Selected category not found.",
@@ -91,6 +86,10 @@ const translations = {
     couldNotLoadLocations: "Could not load locations for the form.",
     errorLoadingListingDetails: "Could not load listing details for editing.",
     currencyUnit: "(EGP)",
+    anonymousUser: "Anonymous User",
+    categoryDetailsTitle: "Category Details",
+    locationDetailsTitle: "Location Details",
+    imagePreviewAlt: (index: number) => `Preview ${index + 1}`,
   },
   ar: {
     titleMin: "يجب أن يتكون العنوان من 5 أحرف على الأقل",
@@ -119,7 +118,6 @@ const translations = {
     subcategoryLabel: "الفئة الفرعية",
     selectSubcategoryPlaceholder: (categoryName?: string) => categoryName ? `اختر فئة فرعية لـ ${categoryName}` : "اختر فئة فرعية",
     noSubcategoryOption: "بدون فئة فرعية / عام",
-
     countryLabel: "الدولة",
     selectCountryPlaceholder: "اختر دولة",
     governorateLabel: "المحافظة / المدينة",
@@ -128,7 +126,6 @@ const translations = {
     selectDistrictPlaceholder: "اختر منطقة/حي",
     noDistrictOption: "لا يوجد منطقة محددة / منطقة عامة",
     loadingLocations: "جار تحميل المواقع...",
-
     uploadImagesLabel: "تحميل الصور",
     uploadImagesDesc: "يمكنك تحميل صور متعددة. في وضع التعديل، ستحل الصور الجديدة محل الحالية (لم يتم تنفيذ الميزة بالكامل للتحديثات بعد).",
     submitButton: "إرسال للمراجعة",
@@ -150,6 +147,10 @@ const translations = {
     couldNotLoadLocations: "لم نتمكن من تحميل المواقع للنموذج.",
     errorLoadingListingDetails: "لم نتمكن من تحميل تفاصيل الإعلان للتعديل.",
     currencyUnit: "(جنيه)",
+    anonymousUser: "مستخدم مجهول",
+    categoryDetailsTitle: "تفاصيل الفئة",
+    locationDetailsTitle: "تفاصيل الموقع",
+    imagePreviewAlt: (index: number) => `معاينة ${index + 1}`,
   }
 };
 
@@ -164,7 +165,7 @@ const createListingFormSchema = (t: typeof translations['en'] | typeof translati
   governorateId: z.string().min(1, t.governorateRequired),
   districtId: z.string().optional(),
   
-  images: z.any().optional(), // For FileList or array of URLs
+  images: z.any().optional(),
   status: z.custom<ListingStatus>().default('pending'),
 });
 
@@ -348,7 +349,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
         seller = { id: userDocSnap.id, ...userDocSnap.data() } as User;
       } else { 
         seller = {
-          id: currentUserAuth.uid, name: currentUserAuth.displayName || "Anonymous User",
+          id: currentUserAuth.uid, name: currentUserAuth.displayName || t.anonymousUser,
           email: currentUserAuth.email || "", avatarUrl: currentUserAuth.photoURL || "",
           joinDate: new Date().toISOString(), isAdmin: false,
         };
@@ -478,7 +479,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
               />
               
               <Card><CardContent className="pt-6 space-y-6">
-                <h3 className="text-lg font-medium">{language === 'ar' ? 'تفاصيل الفئة' : 'Category Details'}</h3>
+                <h3 className="text-lg font-medium">{t.categoryDetailsTitle}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <FormField
                     control={form.control} name="categoryId"
@@ -519,7 +520,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
               </CardContent></Card>
 
               <Card><CardContent className="pt-6 space-y-6">
-                <h3 className="text-lg font-medium">{language === 'ar' ? 'تفاصيل الموقع' : 'Location Details'}</h3>
+                <h3 className="text-lg font-medium">{t.locationDetailsTitle}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <FormField
                         control={form.control} name="countryId"
@@ -554,7 +555,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
                         )}
                     />
                 </div>
-                {(selectedGovernorate || availableDistricts.length > 0) && ( // Show district only if a governorate is selected or if there are districts (e.g. in edit mode)
+                {(selectedGovernorate || availableDistricts.length > 0) && (
                     <FormField
                         control={form.control} name="districtId"
                         render={({ field }) => (
@@ -589,7 +590,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
               {imagePreviews.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2">
                   {imagePreviews.map((src, index) => (
-                    <img key={index} src={src} alt={`Preview ${index + 1}`} className="h-24 w-full object-cover rounded-md border"/>
+                    <img key={index} src={src} alt={t.imagePreviewAlt(index + 1)} className="h-24 w-full object-cover rounded-md border"/>
                   ))}
                 </div>
               )}

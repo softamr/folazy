@@ -12,7 +12,7 @@ import { RecommendationsSection } from '@/components/RecommendationsSection';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useEffect, useState, use } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
+import { useLanguage } from '@/contexts/LanguageContext';
 import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useSearchParams } from 'next/navigation';
@@ -46,7 +46,7 @@ async function getListingFromFirestore(id: string, isAdminViewing: boolean = fal
         joinDate: new Date().toISOString(),
         isAdmin: false,
       },
-      images: data.images || [], // Ensure images is always an array
+      images: data.images || [],
     };
 
     if (!isAdminViewing && listing.status !== 'approved' && listing.status !== 'sold') {
@@ -76,6 +76,10 @@ const translations = {
     contactSellerButton: "Contact Seller",
     loadingListing: "Loading listing details...",
     currencySymbol: "EGP",
+    postedOnPrefix: "Posted on",
+    imageAltText: (title: string, index: number) => `${title} - Image ${index + 1}`,
+    placeholderImageAlt: "Placeholder image",
+    unknown: "Unknown",
   },
   ar: {
     backToListings: "العودة إلى الإعلانات",
@@ -92,6 +96,10 @@ const translations = {
     contactSellerButton: "اتصل بالبائع",
     loadingListing: "جار تحميل تفاصيل الإعلان...",
     currencySymbol: "جنيه",
+    postedOnPrefix: "نشر في",
+    imageAltText: (title: string, index: number) => `${title} - صورة ${index + 1}`,
+    placeholderImageAlt: "صورة مؤقتة",
+    unknown: "غير معروف",
   }
 };
 
@@ -117,6 +125,7 @@ export default function ListingPage({ params: paramsProp }: ListingPageProps) {
 
     getListingFromFirestore(listingId, adminViewParam)
       .then(data => {
+        if (data && !data.category.name) data.category.name = t.unknown;
         setListing(data);
       })
       .catch(error => {
@@ -126,7 +135,7 @@ export default function ListingPage({ params: paramsProp }: ListingPageProps) {
       .finally(() => {
         setIsLoading(false);
       });
-  }, [listingId, searchParams]);
+  }, [listingId, searchParams, t.unknown]);
 
   if (isLoading) {
     return (
@@ -202,7 +211,7 @@ export default function ListingPage({ params: paramsProp }: ListingPageProps) {
               >
                 <Image
                   src={src}
-                  alt={`${listing.title} - Image ${index + 1}`}
+                  alt={t.imageAltText(listing.title, index + 1)}
                   fill
                   style={{objectFit: 'cover'}}
                   data-ai-hint="product detail"
@@ -212,7 +221,7 @@ export default function ListingPage({ params: paramsProp }: ListingPageProps) {
             ))}
              {listing.images.length === 0 && (
                 <div className="md:col-span-2 relative aspect-[16/7] bg-muted flex items-center justify-center">
-                    <Image className="h-24 w-24 text-muted-foreground" data-ai-hint="placeholder image" src="https://placehold.co/600x400.png" alt="Placeholder" fill style={{objectFit:'cover'}} />
+                    <Image className="h-24 w-24 text-muted-foreground" data-ai-hint="placeholder image" src="https://placehold.co/600x400.png" alt={t.placeholderImageAlt} fill style={{objectFit:'cover'}} />
                 </div>
             )}
           </div>
@@ -236,7 +245,7 @@ export default function ListingPage({ params: paramsProp }: ListingPageProps) {
             </div>
             <div className="flex items-center col-span-1 sm:col-span-2">
               <CalendarDays className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'} shrink-0 text-primary`} />
-              <span>{language === 'ar' ? 'نشر في' : 'Posted on'}: {new Date(listing.postedDate).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}</span>
+              <span>{t.postedOnPrefix}: {new Date(listing.postedDate).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}</span>
             </div>
           </div>
 

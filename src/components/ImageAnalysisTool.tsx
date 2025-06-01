@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle, AlertTriangle, Upload, Loader2 } from 'lucide-react';
 import type { ImageAnalysisResult } from '@/lib/types';
-import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
+import { useLanguage } from '@/contexts/LanguageContext';
 // import { analyzeListingImage } from '@/ai/flows/analyze-listing-image';
 
 const translations = {
@@ -29,9 +29,9 @@ const translations = {
     errorFailedToAnalyze: "Failed to analyze image. Please try again.",
     errorFailedToRead: "Failed to read image file.",
     errorTitle: "Error",
-    // Mock issues for translation example
     mockIssueCopyright: "Potential copyright concern.",
     mockIssueBlurry: "Image seems blurry.",
+    selectedPreviewAlt: "Selected preview",
   },
   ar: {
     title: "تحليل الصور بالذكاء الاصطناعي",
@@ -51,6 +51,7 @@ const translations = {
     errorTitle: "خطأ",
     mockIssueCopyright: "قلق محتمل بشأن حقوق النشر.",
     mockIssueBlurry: "الصورة تبدو ضبابية.",
+    selectedPreviewAlt: "معاينة محددة",
   }
 };
 
@@ -136,7 +137,7 @@ export function ImageAnalysisTool() {
 
         {imagePreview && (
           <div className="mt-4">
-            <img src={imagePreview} alt="Selected preview" className="max-h-60 rounded-md border" />
+            <img src={imagePreview} alt={t.selectedPreviewAlt} className="max-h-60 rounded-md border" />
           </div>
         )}
 

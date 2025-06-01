@@ -10,7 +10,7 @@ import type { Listing, Category as CategoryType } from '@/lib/types';
 import { ChevronRight, Home, PackageOpen, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query as firestoreQuery, where, orderBy as firestoreOrderBy, Timestamp } from 'firebase/firestore';
@@ -28,7 +28,9 @@ async function fetchFilteredListingsClient(
     locationGovernorateId?: string;
     locationDistrictId?: string;
   },
-  allFirestoreCategories: CategoryType[]
+  allFirestoreCategories: CategoryType[],
+  unknownCategoryName: string,
+  unknownSellerName: string
 ): Promise<{ listings: Listing[], category?: CategoryType, subcategory?: CategoryType, breadcrumbCategories: CategoryType[] }> {
   
   let category: CategoryType | undefined;
@@ -62,9 +64,6 @@ async function fetchFilteredListingsClient(
   }
 
   const listingsRef = collection(db, 'listings');
-  // Base query: always fetch approved listings. 
-  // If no specific category, location, or other filters are applied (e.g., on /s/all-listings with no query params),
-  // this will result in fetching all approved listings.
   let q = firestoreQuery(listingsRef, where('status', '==', 'approved'));
 
   if (filterCategoryId) {
@@ -102,8 +101,8 @@ async function fetchFilteredListingsClient(
         ...data, 
         id: doc.id, 
         postedDate,
-        category: data.category || { id: 'unknown', name: 'Unknown' },
-        seller: data.seller || { id: 'unknown', name: 'Unknown Seller', email: '', joinDate: new Date().toISOString() },
+        category: data.category || { id: 'unknown', name: unknownCategoryName },
+        seller: data.seller || { id: 'unknown', name: unknownSellerName, email: '', joinDate: new Date().toISOString() },
      } as Listing);
   });
 
@@ -143,6 +142,9 @@ const translations = {
     loadingListings: 'Loading listings...',
     errorLoadingCategories: 'Could not load category data.',
     errorTitle: 'Error',
+    unknownCategory: 'Unknown Category',
+    unknownSeller: 'Unknown Seller',
+    failedToLoadListings: 'Failed to load listings.',
   },
   ar: {
     home: 'الرئيسية',
@@ -155,6 +157,9 @@ const translations = {
     loadingListings: 'جار تحميل الإعلانات...',
     errorLoadingCategories: 'لم نتمكن من تحميل بيانات الفئة.',
     errorTitle: 'خطأ',
+    unknownCategory: 'فئة غير معروفة',
+    unknownSeller: 'بائع غير معروف',
+    failedToLoadListings: 'فشل تحميل الإعلانات.',
   }
 };
 
@@ -213,11 +218,11 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
     
     const filters = { query, minPrice, maxPrice, categoryId, subcategoryId, locationCountryId, locationGovernorateId, locationDistrictId };
 
-    fetchFilteredListingsClient(slug, filters, allCategoriesData)
+    fetchFilteredListingsClient(slug, filters, allCategoriesData, t.unknownCategory, t.unknownSeller)
       .then(setData)
       .catch(err => {
         console.error("Failed to fetch listings:", err);
-        toast({ title: t.errorTitle, description: "Failed to load listings.", variant: "destructive" });
+        toast({ title: t.errorTitle, description: t.failedToLoadListings, variant: "destructive" });
       })
       .finally(() => setIsLoadingListings(false));
   }, [slug, clientSearchParams, isLoadingCategories, allCategoriesData, toast, t]);

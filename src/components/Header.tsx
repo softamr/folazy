@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -25,7 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import React, { useState, useEffect, useCallback } from 'react';
 import type { Category, User as UserType } from '@/lib/types';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
+import { useLanguage } from '@/contexts/LanguageContext';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, collection, getDocs, query as firestoreQuery, orderBy } from 'firebase/firestore';
@@ -33,7 +34,6 @@ import { useToast } from '@/hooks/use-toast';
 import * as Icons from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton'; 
 
-// Simple translation dictionary
 const translations = {
   en: {
     login: 'Login',
@@ -56,6 +56,11 @@ const translations = {
     viewProfile: 'View Profile',
     loginSignUp: 'Login / Sign Up',
     loading: 'Loading...',
+    errorLoadingSiteCategories: "Could not load site categories.",
+    errorLoadingUserDetailsHeader: "Could not load full user details for header.",
+    defaultUserName: "User",
+    roleAdmin: "Admin",
+    errorTitle: "Error",
   },
   ar: {
     login: 'تسجيل الدخول',
@@ -78,6 +83,11 @@ const translations = {
     viewProfile: 'عرض الملف الشخصي',
     loginSignUp: 'تسجيل الدخول / إنشاء حساب',
     loading: 'جار التحميل...',
+    errorLoadingSiteCategories: "تعذر تحميل فئات الموقع.",
+    errorLoadingUserDetailsHeader: "تعذر تحميل تفاصيل المستخدم كاملة للترويسة.",
+    defaultUserName: "مستخدم",
+    roleAdmin: "مشرف",
+    errorTitle: "خطأ",
   }
 };
 
@@ -130,13 +140,13 @@ export function Header() {
 
       } catch (error) {
         console.error("Error fetching categories for header:", error);
-        toast({ title: "Error", description: "Could not load site categories.", variant: "destructive" });
+        toast({ title: t.errorTitle, description: t.errorLoadingSiteCategories, variant: "destructive" });
       } finally {
         setIsLoadingCategories(false);
       }
     };
     fetchCategories();
-  }, [toast]);
+  }, [toast, t]);
 
 
   useEffect(() => {
@@ -151,7 +161,7 @@ export function Header() {
             setIsAuthenticated(true);
           } else {
             setCurrentUser({
-              id: user.uid, name: user.displayName || user.email || "User",
+              id: user.uid, name: user.displayName || user.email || t.defaultUserName,
               email: user.email || "", avatarUrl: user.photoURL || "",
               joinDate: user.metadata.creationTime || new Date().toISOString(), isAdmin: false,
             });
@@ -161,12 +171,12 @@ export function Header() {
         } catch (error) {
           console.error("Error fetching user document for header:", error);
           setCurrentUser({
-            id: user.uid, name: user.displayName || user.email || "User",
+            id: user.uid, name: user.displayName || user.email || t.defaultUserName,
             email: user.email || "", avatarUrl: user.photoURL || "",
             joinDate: user.metadata.creationTime || new Date().toISOString(), isAdmin: false,
           });
           setIsAuthenticated(true);
-          // toast({ title: "Profile Error", description: "Could not load full user details for header.", variant: "destructive" });
+          toast({ title: t.errorTitle, description: t.errorLoadingUserDetailsHeader, variant: "destructive" });
         }
       } else {
         setCurrentUser(null);
@@ -175,7 +185,7 @@ export function Header() {
       setIsLoadingAuth(false);
     });
     return () => unsubscribe();
-  }, [toast]);
+  }, [toast, t]);
 
 
   const handleLogout = async () => {
@@ -201,13 +211,11 @@ export function Header() {
     } else {
       router.push(`/s/all-listings`);
     }
-    // setSearchQuery(''); // Clear search after submission - keeping it might be better UX
   };
 
   const getCategoryName = useCallback((category: Category): string => {
     if (language === 'ar') {
         const arNames: Record<string, string> = {
-            // Main Categories
             'electronics': 'إلكترونيات',
             'vehicles': 'مركبات',
             'properties': 'عقارات',
@@ -221,56 +229,44 @@ export function Header() {
             'services': 'خدمات',
             'business & industrial': 'أعمال وصناعة',
             'businesses & industrial': 'أعمال وصناعة',
-
-            // Subcategories (by ID or English name as fallback)
             'mobiles': 'هواتف محمولة', 
             'mobile phones': 'هواتف محمولة',
             'tablets': 'أجهزة لوحية',
             'laptops': 'لابتوبات',
             'cameras': 'كاميرات',
             'phones & tablets': 'الهواتف والأجهزة اللوحية',
-
             'cars': 'سيارات',
             'cars for sale': 'سيارات للبيع',
             'cars for rent': 'سيارات للإيجار',
             'motorcycles': 'دراجات نارية',
             'auto accessories': 'اكسسوارات سيارات',
             'heavy vehicles': 'مركبات ثقيلة',
-
             'apartments for rent': 'شقق للإيجار',
             'villas for sale': 'فلل للبيع',
             'commercial for rent': 'تجاري للإيجار',
             'properties for rent': 'عقارات للإيجار',
             'properties for sale': 'عقارات للبيع',
-
             'accounting': 'محاسبة',
             'sales': 'مبيعات',
             'it': 'تكنولوجيا المعلومات', 
-
             'sofas': 'أرائك',
             'beds': 'أسرة',
             'home accessories': 'اكسسوارات منزلية',
-
             'clothing': 'ملابس',
             'shoes': 'أحذية',
             'jewelry': 'مجوهرات',
-
             'dogs': 'كلاب',
             'cats': 'قطط',
             'birds': 'طيور',
-
             'toys': 'ألعاب',
             'strollers': 'عربات أطفال',
             'baby gear': 'مستلزمات أطفال',
-
             'books': 'كتب',
             'sports equipment': 'معدات رياضية',
             'musical instruments': 'آلات موسيقية',
-
             'cleaning': 'تنظيف',
             'tutoring': 'دروس خصوصية',
             'repair': 'تصليح',
-
             'office equipment': 'معدات مكتبية',
             'heavy machinery': 'معدات ثقيلة',
             'supplies': 'لوازم أعمال',
@@ -370,7 +366,7 @@ export function Header() {
         <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-auto px-2 py-1.5 rounded-md flex flex-col items-center space-y-0.5 group hover:bg-transparent">
             <Avatar className="h-8 w-8">
-                <AvatarImage src={currentUser?.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser?.name || "User"} data-ai-hint="avatar person"/>
+                <AvatarImage src={currentUser?.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser?.name || t.defaultUserName} data-ai-hint="avatar person"/>
                 <AvatarFallback>{currentUser?.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
             <span className="text-[10px] leading-tight text-muted-foreground group-hover:text-primary group-hover:underline">{t.profile}</span>
@@ -381,7 +377,7 @@ export function Header() {
             <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">{currentUser?.name}</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                {currentUser?.email} {currentUser?.isAdmin && (language === 'ar' ? "(مشرف)" : "(Admin)")}
+                {currentUser?.email} {currentUser?.isAdmin && `(${t.roleAdmin})`}
                 </p>
             </div>
             </DropdownMenuLabel>
@@ -452,9 +448,9 @@ export function Header() {
            isAuthenticated && currentUser ? (
             <>
               <div className="flex items-center gap-2 mb-2">
-                <Avatar className="h-9 w-9"><AvatarImage src={currentUser.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser.name} data-ai-hint="avatar person"/><AvatarFallback>{currentUser.name.charAt(0).toUpperCase()}</AvatarFallback></Avatar>
+                <Avatar className="h-9 w-9"><AvatarImage src={currentUser.avatarUrl || "https://placehold.co/100x100.png"} alt={currentUser.name || t.defaultUserName} data-ai-hint="avatar person"/><AvatarFallback>{(currentUser.name || t.defaultUserName).charAt(0).toUpperCase()}</AvatarFallback></Avatar>
                 <div>
-                  <p className="text-sm font-medium">{currentUser.name} {currentUser?.isAdmin && <span className="text-xs text-primary">({language === 'ar' ? "مشرف" : "Admin"})</span>}</p>
+                  <p className="text-sm font-medium">{currentUser.name || t.defaultUserName} {currentUser?.isAdmin && <span className="text-xs text-primary">({t.roleAdmin})</span>}</p>
                   <Link href="/profile" className="text-xs text-primary hover:underline" onClick={() => setIsMobileMenuOpen(false)}>{t.viewProfile}</Link>
                 </div>
               </div>
@@ -472,7 +468,6 @@ export function Header() {
 
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50">
-      {/* Top Bar */}
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <MobileNav />
@@ -521,7 +516,6 @@ export function Header() {
         </div>
       </div>
 
-      {/* Main Navigation Bar */}
       <div className="bg-secondary border-t border-b border-border hidden md:block">
         <div className="container mx-auto px-4 h-12 flex items-center justify-start md:justify-center space-x-1 md:space-x-3 overflow-x-auto">
            {isLoadingCategories ? <Skeleton className="h-8 w-36"/> : (

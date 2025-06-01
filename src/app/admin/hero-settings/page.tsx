@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, Loader2, Image as ImageIcon, Link as LinkIcon, X } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import Image from 'next/image';
-import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const translations = {
@@ -41,6 +41,8 @@ const translations = {
     maxImagesReached: "Maximum of 5 hero banner images reached. Delete one to add another.",
     uploadNoteTitle: "Note on Image Uploads:",
     uploadNoteDescription: "Currently, images are added by URL. For direct file uploads, integrate Firebase Storage: upload the file, get its download URL, then add it here. This feature is planned for future enhancement.",
+    errorLoadingHeroImages: "Could not load hero banner images.",
+    imageNotFoundForDeletion: "Image not found for deletion.",
   },
   ar: {
     pageTitle: "إعدادات بانر الصفحة الرئيسية",
@@ -66,6 +68,8 @@ const translations = {
     maxImagesReached: "تم الوصول إلى الحد الأقصى لعدد 5 صور لبانر الصفحة الرئيسية. احذف واحدة لإضافة أخرى.",
     uploadNoteTitle: "ملاحظة حول تحميل الصور:",
     uploadNoteDescription: "حاليًا، تتم إضافة الصور عن طريق الرابط. لتحميل الملفات مباشرة، قم بدمج Firebase Storage: قم بتحميل الملف، واحصل على رابط التنزيل الخاص به، ثم أضفه هنا. من المخطط تحسين هذه الميزة في المستقبل.",
+    errorLoadingHeroImages: "تعذر تحميل صور بانر الصفحة الرئيسية.",
+    imageNotFoundForDeletion: "الصورة غير موجودة للحذف.",
   }
 };
 
@@ -96,7 +100,7 @@ export default function HeroSettingsPage() {
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching hero images: ", error);
-      toast({ title: t.errorTitle, description: "Could not load hero banner images.", variant: "destructive" });
+      toast({ title: t.errorTitle, description: t.errorLoadingHeroImages, variant: "destructive" });
       setIsLoading(false);
     });
     return () => unsubscribe();
@@ -126,7 +130,6 @@ export default function HeroSettingsPage() {
     };
 
     try {
-      // Ensure document exists before trying to update with arrayUnion
       const docSnap = await getDoc(heroDocRef);
       if (!docSnap.exists()) {
         await setDoc(heroDocRef, { images: [newImage] });
@@ -152,7 +155,7 @@ export default function HeroSettingsPage() {
     const imageToDelete = bannerImages.find(img => img.id === imageId);
 
     if (!imageToDelete) {
-        toast({ title: t.errorTitle, description: "Image not found for deletion.", variant: "destructive" });
+        toast({ title: t.errorTitle, description: t.imageNotFoundForDeletion, variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
@@ -246,7 +249,7 @@ export default function HeroSettingsPage() {
                     width={300}
                     height={200}
                     className="object-cover aspect-[3/2] w-full"
-                    data-ai-hint="banner image" // Generic hint for admin uploaded images
+                    data-ai-hint="banner image"
                   />
                   <CardFooter className="p-2 bg-background/80 absolute bottom-0 left-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex justify-between items-center">
                     <p className="text-xs text-muted-foreground truncate" title={image.alt}>{image.alt}</p>

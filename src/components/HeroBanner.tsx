@@ -4,7 +4,7 @@
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -19,6 +19,7 @@ const translations = {
     postAdButton: "Post Your Ad Now",
     loadingImages: "Loading banner...",
     noImagesConfigured: "Welcome to Fwlazy!",
+    promoBannerAltFallback: "Promotional banner image",
   },
   ar: {
     titleLine1: "اكتشف عروضاً مذهلة",
@@ -27,13 +28,13 @@ const translations = {
     postAdButton: "أضف إعلانك الآن",
     loadingImages: "جار تحميل البانر...",
     noImagesConfigured: "أهلاً بك في فولاذي!",
+    promoBannerAltFallback: "صورة بانر ترويجية",
   }
 };
 
-const SLIDESHOW_INTERVAL = 5000; // 5 seconds
+const SLIDESHOW_INTERVAL = 5000;
 const HERO_BANNER_DOC_PATH = 'siteSettings/heroBanner';
 
-// Default images if Firestore has none or errors out - use full size placeholders
 const defaultSlideImages: HeroBannerImage[] = [
   { id: 'default1', src: "https://placehold.co/1200x500.png", alt: "Fwlazy Promotion 1", uploadedAt: '', 'data-ai-hint': 'promotion marketing' },
   { id: 'default2', src: "https://placehold.co/1200x500.png", alt: "Fwlazy Promotion 2", uploadedAt: '', 'data-ai-hint': 'community sale' },
@@ -57,22 +58,22 @@ export function HeroBanner() {
         if (fetchedImages && fetchedImages.length > 0) {
           setImagesToDisplay(fetchedImages);
         } else {
-          setImagesToDisplay(defaultSlideImages);
+          setImagesToDisplay(defaultSlideImages.map(img => ({...img, alt: t.promoBannerAltFallback})));
         }
       } else {
-        setImagesToDisplay(defaultSlideImages);
+        setImagesToDisplay(defaultSlideImages.map(img => ({...img, alt: t.promoBannerAltFallback})));
       }
       setIsLoadingBanner(false);
     }, (error) => {
       console.error("Error fetching hero banner images:", error);
-      setImagesToDisplay(defaultSlideImages);
+      setImagesToDisplay(defaultSlideImages.map(img => ({...img, alt: t.promoBannerAltFallback})));
       setIsLoadingBanner(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [t.promoBannerAltFallback]);
 
   useEffect(() => {
-    if (imagesToDisplay.length > 1) { // Only run interval if there's more than one image
+    if (imagesToDisplay.length > 1) {
       const timer = setInterval(() => {
         setCurrentImageIndex((prevIndex) =>
           prevIndex === imagesToDisplay.length - 1 ? 0 : prevIndex + 1
@@ -99,13 +100,13 @@ export function HeroBanner() {
           >
             <Image
               src={image.src}
-              alt={image.alt || 'Promotional banner image'}
+              alt={image.alt || t.promoBannerAltFallback}
               layout="fill"
               objectFit="cover"
-              priority={index === 0} // Prioritize loading the first image
+              priority={index === 0}
               data-ai-hint={image['data-ai-hint'] || "hero background"}
             />
-            <div className="absolute inset-0 bg-black/40"></div> {/* Dark overlay for text readability */}
+            <div className="absolute inset-0 bg-black/40"></div>
           </div>
         ))
       ) : (
@@ -127,7 +128,6 @@ export function HeroBanner() {
         </Button>
       </div>
       
-      {/* Inline styles for text shadow, consider moving to globals.css if used elsewhere */}
       <style jsx global>{`
         .shadow-text-sm {
           text-shadow: 1px 1px 2px rgba(0,0,0,0.5);

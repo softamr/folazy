@@ -10,14 +10,12 @@ import type { Listing, Category as CategoryType } from '@/lib/types';
 import { ChevronRight, Home, PackageOpen, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query as firestoreQuery, where, orderBy as firestoreOrderBy, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
-// This function is similar to the one in /s/[...slug]/page.tsx
-// It's defined here to be self-contained or could be refactored into a shared lib if needed.
 async function fetchListingsForAllApproved(
   filters: { 
     query?: string; 
@@ -26,7 +24,9 @@ async function fetchListingsForAllApproved(
     locationCountryId?: string;
     locationGovernorateId?: string;
     locationDistrictId?: string;
-  }
+  },
+  unknownCategoryName: string,
+  unknownSellerName: string
 ): Promise<Listing[]> {
   
   const listingsRef = collection(db, 'listings');
@@ -56,8 +56,8 @@ async function fetchListingsForAllApproved(
         ...data, 
         id: doc.id, 
         postedDate,
-        category: data.category || { id: 'unknown', name: 'Unknown' },
-        seller: data.seller || { id: 'unknown', name: 'Unknown Seller', email: '', joinDate: new Date().toISOString() },
+        category: data.category || { id: 'unknown', name: unknownCategoryName },
+        seller: data.seller || { id: 'unknown', name: unknownSellerName, email: '', joinDate: new Date().toISOString() },
      } as Listing);
   });
 
@@ -75,21 +75,24 @@ async function fetchListingsForAllApproved(
     fetchedListings = fetchedListings.filter(l => l.price <= Number(filters.maxPrice));
   }
   
-  return fetchedListings.slice(0, 12); // Apply pagination limit if needed
+  return fetchedListings.slice(0, 12);
 }
 
 const translations = {
   en: {
     home: "Home",
     allListings: "All Listings",
-    allApprovedListingsTitle: "All Listings", // Changed to be more generic as it's the title of this page
+    allApprovedListingsTitle: "All Listings",
     noListingsFound: "No listings found matching your criteria.",
     clearFilters: "Clear filters and view all",
     previous: "Previous",
     next: "Next",
     loadingListings: "Loading listings...",
-    errorLoadingCategories: "Could not load category data.", // Kept if FilterBar needs it
+    errorLoadingCategories: "Could not load category data.",
     errorTitle: "Error",
+    unknownCategory: "Unknown Category",
+    unknownSeller: "Unknown Seller",
+    failedToLoadListings: "Failed to load listings.",
   },
   ar: {
     home: "الرئيسية",
@@ -102,6 +105,9 @@ const translations = {
     loadingListings: "جار تحميل الإعلانات...",
     errorLoadingCategories: "لم نتمكن من تحميل بيانات الفئة.",
     errorTitle: "خطأ",
+    unknownCategory: "فئة غير معروفة",
+    unknownSeller: "بائع غير معروف",
+    failedToLoadListings: "فشل تحميل الإعلانات.",
   }
 };
 
@@ -111,7 +117,6 @@ export default function AllListingsPage() {
   const { toast } = useToast();
   const clientSearchParams = useSearchParams();
 
-  // Categories are needed for FilterBar
   const [allCategoriesData, setAllCategoriesData] = useState<CategoryType[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -140,9 +145,6 @@ export default function AllListingsPage() {
   }, [toast, t]);
 
   useEffect(() => {
-    // Wait for categories if FilterBar depends on them, though listings can load independently here.
-    // if (isLoadingCategories) return; // Not strictly necessary for listings, but good for FilterBar init
-
     setIsLoadingListings(true);
     const query = clientSearchParams.get('query') || undefined;
     const minPrice = clientSearchParams.get('minPrice') || undefined;
@@ -153,14 +155,14 @@ export default function AllListingsPage() {
     
     const filters = { query, minPrice, maxPrice, locationCountryId, locationGovernorateId, locationDistrictId };
 
-    fetchListingsForAllApproved(filters)
+    fetchListingsForAllApproved(filters, t.unknownCategory, t.unknownSeller)
       .then(setListings)
       .catch(err => {
         console.error("Failed to fetch listings for AllListingsPage:", err);
-        toast({ title: t.errorTitle, description: "Failed to load listings.", variant: "destructive" });
+        toast({ title: t.errorTitle, description: t.failedToLoadListings, variant: "destructive" });
       })
       .finally(() => setIsLoadingListings(false));
-  }, [clientSearchParams, toast, t]); // Removed isLoadingCategories dependency for listings fetch
+  }, [clientSearchParams, toast, t]);
 
   if (isLoadingCategories || isLoadingListings) {
     return (

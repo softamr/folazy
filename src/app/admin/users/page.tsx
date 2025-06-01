@@ -22,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const translations = {
   en: {
@@ -44,7 +44,8 @@ const translations = {
     roleAdmin: "Admin",
     roleUser: "User",
     userActionsSr: "User Actions",
-    editUserAction: "Edit User (Not implemented)",
+    editUserAction: "Edit User",
+    editUserActionDesc: (id: string) => `Editing user ${id} (Not implemented)`,
     revokeAdminAction: "Revoke Admin",
     makeAdminAction: "Make Admin",
     deleteUserAction: "Delete User",
@@ -82,7 +83,8 @@ const translations = {
     roleAdmin: "مسؤول",
     roleUser: "مستخدم",
     userActionsSr: "إجراءات المستخدم",
-    editUserAction: "تعديل المستخدم (غير مطبق)",
+    editUserAction: "تعديل المستخدم",
+    editUserActionDesc: (id: string) => `جاري تعديل المستخدم ${id} (غير مطبق)`,
     revokeAdminAction: "إلغاء صلاحيات المسؤول",
     makeAdminAction: "جعله مسؤولاً",
     deleteUserAction: "حذف المستخدم",
@@ -258,7 +260,7 @@ export default function UserManagementPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align={language === 'ar' ? 'start' : 'end'}>
-                          <DropdownMenuItem onClick={() => toast({ title: t.editUserAction, description: `Editing user ${user.id}` })} disabled={isProcessing}>
+                          <DropdownMenuItem onClick={() => toast({ title: t.editUserAction, description: t.editUserActionDesc(user.id) })} disabled={isProcessing}>
                             <Edit className="me-2 h-4 w-4" /> {t.editUserAction}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleToggleAdmin(user.id, user.isAdmin || false)} disabled={isProcessing}>
