@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Category, ListingStatus, User, Listing as ListingType, ListingCategoryInfo, LocationCountry, LocationGovernorate, LocationDistrict, LocationRef } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ImageAnalysisTool } from './ImageAnalysisTool';
+// import { ImageAnalysisTool } from './ImageAnalysisTool'; // Removed static import
 import { Upload, MapPinIcon, TagIcon, ListTree, Loader2, Globe2, Building, Map } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
@@ -27,6 +27,12 @@ import { addDoc, collection, doc, getDoc, getDocs, query as firestoreQuery, orde
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+const ImageAnalysisTool = dynamic(() => import('./ImageAnalysisTool').then(mod => mod.ImageAnalysisTool), {
+  ssr: false, // The tool likely uses client-side APIs
+  loading: () => <p>Loading analysis tool...</p> // Simple loading state
+});
 
 
 const translations = {
