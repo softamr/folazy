@@ -13,8 +13,8 @@ export function Logo() {
     <Image
       src="https://ik.imagekit.io/rmlbayysp/1748777133513-Capture-removebg-preview_f_5E1yhKE.svg"
       alt="Fwlazy Logo"
-      width={120} // Adjust as needed based on your logo's aspect ratio
-      height={32}  // Adjust as needed
+      width={90} // Adjusted from 120
+      height={24}  // Adjusted from 32
       priority // If the logo is above the fold, consider adding priority
       data-ai-hint="logo brand"
     />
