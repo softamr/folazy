@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Listing, Conversation, User as UserType } from '@/lib/types';
 import { ListingCard } from '@/components/ListingCard';
-import { User, Settings, ListChecks, LogOut, MessageSquare, Edit3, ShieldCheck, UserCircle as UserCircleIcon, Loader2, PackageOpen, CheckCircle, AlertTriangle, Hourglass, Save } from 'lucide-react';
+import { User, Settings, ListChecks, LogOut, MessageSquare, Edit3, ShieldCheck, UserCircle as UserCircleIcon, Loader2, PackageOpen, CheckCircle, AlertTriangle, Hourglass, Save, Phone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -154,8 +154,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [editedName, setEditedName] = useState('');
-  // Add state for phone if you decide to implement saving it later
-  // const [editedPhone, setEditedPhone] = useState('');
+  const [editedPhone, setEditedPhone] = useState('');
 
   const [approvedListings, setApprovedListings] = useState<Listing[]>([]);
   const [pendingListings, setPendingListings] = useState<Listing[]>([]);
@@ -174,11 +173,25 @@ export default function ProfilePage() {
             const userData = userDocSnap.data() as UserType;
             setCurrentUser(userData);
             setEditedName(userData.name || '');
-            // setEditedPhone(userData.phone || ''); // If phone exists in UserType
+            setEditedPhone(userData.phone || '');
           } else {
             console.error("No user document found in Firestore for UID:", user.uid);
-            toast({ title: t.profileErrorTitle, description: t.couldNotLoadProfile, variant: "destructive" });
-            setCurrentUser(null);
+            // Create a basic user object if doc doesn't exist, to allow profile editing
+             const basicUserData: UserType = {
+              id: user.uid,
+              name: user.displayName || t.defaultUserName,
+              email: user.email || t.noEmail,
+              phone: '', // Initialize phone as empty
+              avatarUrl: user.photoURL || '',
+              joinDate: user.metadata.creationTime || new Date().toISOString(),
+              isAdmin: false,
+            };
+            setCurrentUser(basicUserData);
+            setEditedName(basicUserData.name);
+            setEditedPhone(basicUserData.phone || '');
+            // Optionally, save this basic profile to Firestore here if desired
+            // await setDoc(userDocRef, basicUserData); 
+            // toast({ title: t.profileErrorTitle, description: t.couldNotLoadProfile, variant: "destructive" });
           }
         } catch (error) {
           console.error("Error fetching user document:", error);
@@ -217,7 +230,14 @@ export default function ProfilePage() {
             id: docSnapshot.id, 
             postedDate,
             category: data.category || { id: 'unknown', name: t.unknownUser }, 
-            seller: data.seller || { id: currentUser.id, name: currentUser.name, email: currentUser.email, joinDate: currentUser.joinDate, isAdmin: currentUser.isAdmin },
+            seller: data.seller || { 
+                id: currentUser.id, 
+                name: currentUser.name, 
+                email: currentUser.email, 
+                phone: currentUser.phone, // Ensure phone is included
+                joinDate: currentUser.joinDate, 
+                isAdmin: currentUser.isAdmin 
+            },
         } as Listing);
       });
 
@@ -232,7 +252,7 @@ export default function ProfilePage() {
     });
 
     return () => unsubscribeListings();
-  }, [currentUser?.id, toast, t]);
+  }, [currentUser, toast, t]);
 
 
   const userConversations = currentUser ? placeholderConversations.filter(
@@ -257,19 +277,31 @@ export default function ProfilePage() {
       toast({ title: t.errorTitle, description: t.failedToFetchDetails, variant: 'destructive' });
       return;
     }
-    if (editedName.trim() === currentUser.name) { // No changes made to name
-      return;
+
+    const nameChanged = editedName.trim() !== (currentUser.name || '');
+    const phoneChanged = editedPhone.trim() !== (currentUser.phone || '');
+
+    if (!nameChanged && !phoneChanged) { 
+      return; // No changes made
     }
 
     setIsSaving(true);
     try {
       const userDocRef = doc(db, "users", firebaseAuthUser.uid);
-      const updateData: Partial<UserType> = {
-        name: editedName.trim(),
-        // phone: editedPhone.trim(), // If phone saving is implemented
-      };
+      const updateData: Partial<UserType> = {};
+      if (nameChanged) updateData.name = editedName.trim();
+      if (phoneChanged) updateData.phone = editedPhone.trim();
+      
       await updateDoc(userDocRef, updateData);
-      setCurrentUser(prev => prev ? { ...prev, name: editedName.trim() } : null);
+      
+      setCurrentUser(prev => {
+        if (!prev) return null;
+        const updatedUser = { ...prev };
+        if (nameChanged) updatedUser.name = editedName.trim();
+        if (phoneChanged) updatedUser.phone = editedPhone.trim();
+        return updatedUser;
+      });
+
       toast({ title: t.changesSavedSuccessTitle, description: t.changesSavedSuccessDesc });
     } catch (error) {
       console.error("Error saving changes:", error);
@@ -475,13 +507,24 @@ export default function ProfilePage() {
                   <Input id="email" type="email" value={displayEmail} disabled />
                 </div>
                 <div>
-                  <Label htmlFor="phone">{t.phoneOptionalLabel}</Label>
-                  <Input id="phone" type="tel" placeholder={t.phonePlaceholder} disabled />
+                  <Label htmlFor="phone" className="flex items-center">
+                    <Phone className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'} text-muted-foreground`} />
+                    {t.phoneOptionalLabel}
+                  </Label>
+                  <Input 
+                    id="phone" 
+                    type="tel" 
+                    placeholder={t.phonePlaceholder} 
+                    value={editedPhone}
+                    onChange={(e) => setEditedPhone(e.target.value)}
+                    disabled={isSaving}
+                    dir="ltr" 
+                  />
                 </div>
                 <Button 
                   className="w-full sm:w-auto" 
                   onClick={handleSaveChanges} 
-                  disabled={isSaving || editedName === (currentUser?.name || '')}
+                  disabled={isSaving || (editedName === (currentUser?.name || '') && editedPhone === (currentUser?.phone || ''))}
                 >
                   {isSaving ? (
                     <><Loader2 className={`h-4 w-4 animate-spin ${language === 'ar' ? 'ms-2' : 'me-2'}`} /> {t.savingChangesButton}</>
@@ -510,5 +553,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-

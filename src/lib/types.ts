@@ -6,6 +6,7 @@ export type User = {
   id: string; // This will be the uid from Firebase Auth
   name: string;
   email: string; // Added email field
+  phone?: string; // Added optional phone field
   avatarUrl?: string;
   joinDate: string;
   isAdmin?: boolean;
