@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -210,6 +211,18 @@ export function FilterBar() {
     if (selectedGovernorateId !== ALL_LOCATIONS_VALUE) params.set('locationGovernorateId', selectedGovernorateId);
     if (selectedDistrictId !== ALL_LOCATIONS_VALUE) params.set('locationDistrictId', selectedDistrictId);
     
+    // If a main category is selected from the path, but also from the filter, the filter takes precedence
+    // This is mostly handled by how newPath is constructed based on selectedCategoryId/SubcategoryId first.
+    // The query params for categoryId/subcategoryId are mainly for when 'all-listings' is the path.
+    if (newPath === '/s/all-listings') {
+      if (selectedCategoryId && selectedCategoryId !== ALL_CATEGORIES_VALUE) {
+        params.set('categoryId', selectedCategoryId);
+      }
+      if (selectedSubcategoryId && selectedSubcategoryId !== ALL_SUBCATEGORIES_VALUE) {
+        params.set('subcategoryId', selectedSubcategoryId);
+      }
+    }
+    
     router.push(`${newPath}${params.toString() ? `?${params.toString()}` : ''}`);
   }, [selectedCategoryId, selectedSubcategoryId, searchQuery, priceRange, selectedCountryId, selectedGovernorateId, selectedDistrictId, router]);
 
@@ -269,13 +282,19 @@ export function FilterBar() {
   const getCategoryName = (category: Category): string => {
     if (language === 'ar') {
         const arNames: Record<string, string> = {
-             'electronics': 'إلكترونيات', 'vehicles': 'مركبات', 'properties': 'عقارات',
-             'mobiles': 'هواتف محمولة', 'tablets': 'أجهزة لوحية', 'cars': 'سيارات',
-             'apartments for rent': 'شقق للإيجار','properties for rent': 'عقارات للإيجار', 
+             'electronics': 'إلكترونيات', 
+             'vehicles': 'مركبات', 
+             'properties': 'عقارات',
+             'mobiles': 'هواتف محمولة', 
+             'tablets': 'أجهزة لوحية', 
+             'cars': 'سيارات',
+             'apartments for rent': 'شقق للإيجار',
+             'properties for rent': 'عقارات للإيجار', 
              'properties for sale': 'عقارات للبيع',
              'business & industrial': 'أعمال وصناعة',
              'businesses & industrial': 'أعمال وصناعة',
              'agriculture equipment': 'معدات زراعية',
+             'fashion & beauty': 'أزياء وجمال',
         };
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
