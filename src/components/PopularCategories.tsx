@@ -27,7 +27,7 @@ const translations = {
 };
 
 const MAX_DISPLAY_CATEGORIES = 6;
-const PROPERTIES_CATEGORY_ID = 'properties';
+// const PROPERTIES_CATEGORY_ID = 'properties'; // No longer needed for special sorting
 
 export function PopularCategories() {
   const { language } = useLanguage();
@@ -96,26 +96,15 @@ export function PopularCategories() {
       setIsLoading(true);
       try {
         const categoriesRef = collection(db, 'categories');
-        // Fetch more than needed to increase chance of finding 'properties', then sort/slice.
-        const q = firestoreQuery(categoriesRef, orderBy('name')); // Order by name for consistent fallback
+        // Fetch categories ordered by 'order' then by 'name'
+        const q = firestoreQuery(categoriesRef, orderBy('order', 'asc'), orderBy('name', 'asc'), limit(MAX_DISPLAY_CATEGORIES));
         const querySnapshot = await getDocs(q);
         const fetchedCategories: Category[] = [];
         querySnapshot.forEach((doc) => {
           fetchedCategories.push({ id: doc.id, ...doc.data() } as Category);
         });
-
-        let sortedForDisplay: Category[] = [];
-        const propertiesCategory = fetchedCategories.find(cat => cat.id === PROPERTIES_CATEGORY_ID);
-
-        if (propertiesCategory) {
-          sortedForDisplay.push(propertiesCategory);
-          const otherCategories = fetchedCategories.filter(cat => cat.id !== PROPERTIES_CATEGORY_ID);
-          sortedForDisplay.push(...otherCategories);
-        } else {
-          sortedForDisplay = fetchedCategories;
-        }
         
-        setCategories(sortedForDisplay.slice(0, MAX_DISPLAY_CATEGORIES));
+        setCategories(fetchedCategories);
 
       } catch (error) {
         console.error("Error fetching popular categories:", error);
