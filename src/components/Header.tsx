@@ -276,6 +276,8 @@ export function Header() {
             'medical equipment': 'معدات طبية',
             'tv - audio - video': 'تلفزيونات - صوتيات - فيديو',
             'mobile & tablet accessories': 'اكسسوارات موبايل وتابلت',
+            'apartments for sale': 'شقق للبيع',
+            'villas for rent': 'فلل للإيجار',
         };
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
