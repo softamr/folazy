@@ -270,6 +270,10 @@ export function Header() {
             'office equipment': 'معدات مكتبية',
             'heavy machinery': 'معدات ثقيلة',
             'supplies': 'لوازم أعمال',
+            'agriculture equipment': 'معدات زراعية',
+            'construction equipment': 'معدات بناء',
+            'industrial equipment': 'معدات صناعية',
+            'medical equipment': 'معدات طبية',
         };
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
