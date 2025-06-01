@@ -2,7 +2,7 @@
 // src/app/s/[...slug]/page.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react'; // Removed 'use'
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ListingCard } from '@/components/ListingCard';
 import { FilterBar } from '@/components/FilterBar';
@@ -17,7 +17,7 @@ import { collection, getDocs, query as firestoreQuery, where, orderBy as firesto
 import { useToast } from '@/hooks/use-toast';
 
 async function fetchFilteredListingsClient(
-  slugParam: string[] | undefined, // Renamed to avoid conflict
+  slugParam: string[] | undefined,
   filters: { 
     query?: string; 
     minPrice?: string; 
@@ -164,13 +164,12 @@ const translations = {
 };
 
 interface SearchPageProps {
-  params: { slug?: string[] };
+  params: Promise<{ slug?: string[] }> | { slug?: string[] };
 }
 
 export default function SearchPage({ params: paramsProp }: SearchPageProps) {
-  // For Client Components, params from page props are already resolved.
-  // No need for React.use() here.
-  const slugFromParams = paramsProp.slug; // Directly access slug from paramsProp
+  const resolvedParams = React.use(paramsProp);
+  const slugFromParams = resolvedParams.slug;
   const { language } = useLanguage();
   const t = translations[language];
   const { toast } = useToast();

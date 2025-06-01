@@ -11,7 +11,7 @@ import { CalendarDays, MapPin, Tag, MessageSquare, ArrowLeft, AlertTriangle, Che
 import { RecommendationsSection } from '@/components/RecommendationsSection';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useEffect, useState } from 'react'; // Removed 'use'
+import React, { useEffect, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -104,13 +104,12 @@ const translations = {
 };
 
 interface ListingPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }> | { id: string };
 }
 
 export default function ListingPage({ params: paramsProp }: ListingPageProps) {
-  // For Client Components, params from page props are already resolved.
-  // No need for React.use() here.
-  const { id: listingId } = paramsProp;
+  const resolvedParams = React.use(paramsProp);
+  const { id: listingId } = resolvedParams;
   const searchParams = useSearchParams();
 
   const { language } = useLanguage();
