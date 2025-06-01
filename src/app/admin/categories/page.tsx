@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2, PackageOpen, ListOrdered, Tags, X, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import * as Icons from 'lucide-react';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 
 const generateSlug = (name: string) => {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
@@ -279,7 +279,7 @@ export default function CategoryManagementPage() {
 
   const handleMoveCategory = async (currentIndex: number, direction: 'up' | 'down') => {
     setIsSubmitting(true);
-    const newCategories = [...categories]; // `categories` is already sorted by `useEffect`
+    const newCategories = [...categories]; 
     const categoryToMove = newCategories[currentIndex];
     let otherCategoryIndex = -1;
 
@@ -295,17 +295,11 @@ export default function CategoryManagementPage() {
     }
 
     const otherCategory = newCategories[otherCategoryIndex];
-
-    // Determine the order values for the update.
-    // If a category's order is undefined, use its current index in the sorted list
-    // as a basis for its numerical order. This ensures numeric values are written to Firestore.
+    
     const orderForCatToMove = categoryToMove.order === undefined ? currentIndex : categoryToMove.order;
     const orderForOtherCat = otherCategory.order === undefined ? otherCategoryIndex : otherCategory.order;
     
-    // These are the final values that will be written to Firestore documents.
-    // Category being moved takes the order of the category it's swapping with.
     const finalOrderForMovedCat = orderForOtherCat;
-    // The other category takes the (potentially newly assigned) order of the category that was moved.
     const finalOrderForOtherCat = orderForCatToMove;
 
     try {
@@ -318,11 +312,9 @@ export default function CategoryManagementPage() {
       
       await batch.commit();
       toast({ title: t.successTitle, description: t.categoryOrderUpdated });
-      // The onSnapshot listener will automatically update the local 'categories' state and re-sort.
     } catch (error) {
       console.error("Error updating category order: ", error);
       toast({ title: t.errorTitle, description: t.couldNotUpdateOrder, variant: "destructive" });
-      // No need to manually revert local state, onSnapshot will handle it.
     } finally {
       setIsSubmitting(false);
     }
@@ -500,4 +492,3 @@ export default function CategoryManagementPage() {
     </div>
   );
 }
-

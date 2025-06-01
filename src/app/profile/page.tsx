@@ -17,7 +17,7 @@ import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, collection, query as firestoreQuery, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 import { placeholderConversations } from '@/lib/placeholder-data'; // Keep for messages tab for now
 
 const translations = {
@@ -448,6 +448,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-
-    

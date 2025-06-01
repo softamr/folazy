@@ -24,7 +24,7 @@ import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 
 const translations = {
   en: {
@@ -422,4 +422,3 @@ export default function ListingManagementPage() {
     </div>
   );
 }
-

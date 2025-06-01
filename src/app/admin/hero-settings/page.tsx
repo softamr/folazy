@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Trash2, Loader2, Image as ImageIcon, Link as LinkIcon, X } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import Image from 'next/image';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const translations = {

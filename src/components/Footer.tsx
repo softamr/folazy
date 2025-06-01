@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 
 const translations = {
   en: {

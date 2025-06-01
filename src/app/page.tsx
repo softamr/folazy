@@ -7,7 +7,7 @@ import { HeroBanner } from '@/components/HeroBanner';
 import { PopularCategories } from '@/components/PopularCategories';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, getDocs, Timestamp, limit as firestoreLimit, getCountFromServer } from 'firebase/firestore';

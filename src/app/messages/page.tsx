@@ -12,7 +12,7 @@ import { placeholderConversations, placeholderUsers, placeholderMessagesForConve
 import type { Conversation, Message as MessageType, User as UserType, Listing } from '@/lib/types';
 import { Send, ArrowLeft, Paperclip, Smile, MessageSquare as MessageSquareIcon, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';

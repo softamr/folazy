@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CheckCircle, AlertTriangle, Upload, Loader2 } from 'lucide-react';
 import type { ImageAnalysisResult } from '@/lib/types';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 // import { analyzeListingImage } from '@/ai/flows/analyze-listing-image';
 
 const translations = {

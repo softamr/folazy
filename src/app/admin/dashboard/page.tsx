@@ -11,7 +11,7 @@ import { db } from '@/lib/firebase';
 import { collection, getCountFromServer, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 
 interface DashboardStats {
   totalUsers: number;

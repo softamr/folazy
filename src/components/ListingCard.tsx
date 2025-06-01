@@ -1,5 +1,5 @@
 
-'use client'; // Added for useLanguage hook
+'use client'; 
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -8,7 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, Tag } from 'lucide-react';
-import { useLanguage } from '@/hooks/useLanguage'; // Added for translation
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 
 const translations = {
   en: {

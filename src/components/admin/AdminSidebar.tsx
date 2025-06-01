@@ -8,7 +8,7 @@ import { LayoutDashboard, Users, FileText, Settings, ShieldCheck, ListOrdered, M
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/icons/Logo';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 
 const translations = {
   en: {
@@ -88,4 +88,3 @@ export function AdminSidebar() {
     </aside>
   );
 }
-

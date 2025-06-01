@@ -1,11 +1,11 @@
 
-'use client'; // Added for useLanguage hook
+'use client'; 
 
 import { ListingCard } from '@/components/ListingCard';
 import { placeholderListings } from '@/lib/placeholder-data';
 import type { Listing } from '@/lib/types';
 import { Lightbulb } from 'lucide-react';
-import { useLanguage } from '@/hooks/useLanguage'; // Added for translation
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 
 const translations = {
   en: {

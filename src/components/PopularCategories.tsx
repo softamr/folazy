@@ -10,7 +10,7 @@ import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import * as Icons from 'lucide-react';
 import { HelpCircle } from 'lucide-react';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 import { cn } from '@/lib/utils';
 
 const translations = {
@@ -213,4 +213,3 @@ export function PopularCategories() {
     </section>
   );
 }
-

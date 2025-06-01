@@ -29,7 +29,7 @@ import {
 import { doc, setDoc } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 import type { User } from '@/lib/types';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 
 const translations = {
   en: {

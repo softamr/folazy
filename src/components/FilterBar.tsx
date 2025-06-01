@@ -9,7 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import type { Category, LocationCountry, LocationGovernorate, LocationDistrict } from '@/lib/types';
 import { Filter, Search, X, Loader2, Globe2, Building, Map } from 'lucide-react';
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query as firestoreQuery, orderBy } from 'firebase/firestore';
@@ -454,4 +454,3 @@ export function FilterBar() {
     </div>
   );
 }
-

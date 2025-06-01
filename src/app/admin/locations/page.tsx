@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Edit, Trash2, ChevronDown, ChevronRight, Loader2, MapPinned, PackageOpen, X, Building, Map } from 'lucide-react';
 import { Label } from '@/components/ui/label';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 
 const generateSlug = (name: string) => {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
@@ -508,5 +508,3 @@ export default function LocationManagementPage() {
     </div>
   );
 }
-
-    

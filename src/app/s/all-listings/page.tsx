@@ -1,3 +1,4 @@
+
 // src/app/s/all-listings/page.tsx
 'use client';
 
@@ -9,7 +10,7 @@ import type { Listing, Category as CategoryType } from '@/lib/types';
 import { ChevronRight, Home, PackageOpen, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 import { Skeleton } from '@/components/ui/skeleton';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query as firestoreQuery, where, orderBy as firestoreOrderBy, Timestamp } from 'firebase/firestore';

@@ -25,7 +25,7 @@ import { useState, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { addDoc, collection, doc, getDoc, getDocs, query as firestoreQuery, orderBy, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useLanguage } from '@/contexts/LanguageContext'; // Updated import path
 import { useRouter } from 'next/navigation';
 
 
@@ -609,5 +609,3 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
     </div>
   );
 }
-
-    
