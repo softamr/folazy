@@ -115,12 +115,16 @@ export function HeroBanner() {
          </div>
       )}
 
-      <div className="relative z-10 container mx-auto flex flex-col items-center text-center">
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-6 leading-tight shadow-text-md">
+      <div className={cn(
+          "relative z-10 container mx-auto flex flex-col",
+          language === 'ar' ? "items-start text-right" : "items-end text-right"
+        )}
+      >
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-6 leading-tight shadow-text-md">
           {t.titleLine1} <br className="hidden sm:inline" />
           {t.titleLine2}
         </h1>
-        <p className="text-lg md:text-xl mb-8 opacity-95 max-w-2xl shadow-text-sm">
+        <p className="text-md sm:text-lg mb-8 opacity-95 max-w-2xl shadow-text-sm">
           {t.description}
         </p>
         <Button size="lg" className="bg-white text-primary hover:bg-gray-100 font-semibold py-3 px-8 text-lg shadow-lg" asChild>
