@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -214,6 +213,7 @@ export function Header() {
             'properties': 'عقارات',
             'jobs': 'وظائف',
             'furniture & home decor': 'أثاث وديكور منزلي',
+            'furniture & decor': 'أثاث وديكور',
             'fashion & beauty': 'أزياء وجمال',
             'pets': 'حيوانات أليفة',
             'kids & babies': 'مستلزمات أطفال ورضع',
