@@ -52,17 +52,23 @@ export function HeroBanner() {
     setIsLoadingBanner(true);
     const heroDocRef = doc(db, HERO_BANNER_DOC_PATH);
     const unsubscribe = onSnapshot(heroDocRef, (docSnapshot) => {
+      let validImages: HeroBannerImage[] = [];
       if (docSnapshot.exists()) {
         const data = docSnapshot.data();
-        const fetchedImages = data?.images as HeroBannerImage[];
+        const fetchedImages = data?.images as HeroBannerImage[] | undefined; // Ensure it can be undefined
         if (fetchedImages && fetchedImages.length > 0) {
-          setImagesToDisplay(fetchedImages);
-        } else {
-          setImagesToDisplay(defaultSlideImages.map(img => ({...img, alt: t.promoBannerAltFallback})));
+          // Filter out images with empty or whitespace-only src
+          validImages = fetchedImages.filter(img => img.src && img.src.trim() !== '');
         }
+      }
+
+      if (validImages.length > 0) {
+        setImagesToDisplay(validImages);
       } else {
+        // If no valid images from Firestore, or Firestore doc doesn't exist/has no images, use defaults
         setImagesToDisplay(defaultSlideImages.map(img => ({...img, alt: t.promoBannerAltFallback})));
       }
+      setCurrentImageIndex(0); // Reset index when images change
       setIsLoadingBanner(false);
     }, (error) => {
       console.error("Error fetching hero banner images:", error);
@@ -92,14 +98,14 @@ export function HeroBanner() {
       ) : imagesToDisplay.length > 0 ? (
         imagesToDisplay.map((image, index) => (
           <div
-            key={image.id || image.src}
+            key={image.id || image.src} // Use unique key
             className={cn(
               "absolute inset-0 transition-opacity duration-1000 ease-in-out z-0",
               index === currentImageIndex ? "opacity-100" : "opacity-0"
             )}
           >
             <Image
-              src={image.src}
+              src={image.src} // This should now always be a valid string
               alt={image.alt || t.promoBannerAltFallback}
               layout="fill"
               objectFit="cover"
@@ -143,3 +149,4 @@ export function HeroBanner() {
     </div>
   );
 }
+
