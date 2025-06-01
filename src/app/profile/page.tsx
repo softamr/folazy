@@ -15,10 +15,11 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, collection, query as firestoreQuery, where, onSnapshot, Timestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query as firestoreQuery, where, onSnapshot, Timestamp, updateDoc, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { placeholderConversations } from '@/lib/placeholder-data';
+// Placeholder data import removed as we will fetch real conversations
+// import { placeholderConversations } from '@/lib/placeholder-data';
 
 const translations = {
   en: {
@@ -36,7 +37,7 @@ const translations = {
     accountSettingsTab: "Account Settings",
     postNewListingButton: "Post a New Listing",
     yourConversationsTitle: "Your Conversations",
-    yourConversationsDesc: "Manage your messages with buyers and sellers. (Placeholder data)",
+    yourConversationsDesc: "Manage your messages with buyers and sellers.",
     chatAboutLabel: "Chat about:",
     generalInquiry: "General Inquiry",
     withLabel: "With:",
@@ -80,6 +81,8 @@ const translations = {
     defaultUserName: "User",
     noEmail: "No email available",
     phonePlaceholder: "+20 XXX XXX XXXX",
+    loadingConversations: "Loading conversations...",
+    failedToLoadConversations: "Failed to load your conversations.",
   },
   ar: {
     loadingProfile: "جار تحميل الملف الشخصي...",
@@ -96,7 +99,7 @@ const translations = {
     accountSettingsTab: "إعدادات الحساب",
     postNewListingButton: "نشر إعلان جديد",
     yourConversationsTitle: "محادثاتك",
-    yourConversationsDesc: "إدارة رسائلك مع المشترين والبائعين. (بيانات مؤقتة)",
+    yourConversationsDesc: "إدارة رسائلك مع المشترين والبائعين.",
     chatAboutLabel: "محادثة بخصوص:",
     generalInquiry: "استفسار عام",
     withLabel: "مع:",
@@ -140,6 +143,8 @@ const translations = {
     defaultUserName: "مستخدم",
     noEmail: "لا يوجد بريد إلكتروني",
     phonePlaceholder: "+٢٠ XXX XXX XXXX",
+    loadingConversations: "جار تحميل المحادثات...",
+    failedToLoadConversations: "فشل تحميل محادثاتك.",
   }
 };
 
@@ -161,6 +166,10 @@ export default function ProfilePage() {
   const [rejectedListings, setRejectedListings] = useState<Listing[]>([]);
   const [isLoadingListings, setIsLoadingListings] = useState(true);
 
+  const [myConversations, setMyConversations] = useState<Conversation[]>([]);
+  const [isLoadingMyConversations, setIsLoadingMyConversations] = useState(true);
+  const [unreadConversationCount, setUnreadConversationCount] = useState(0);
+
   useEffect(() => {
     setIsLoading(true);
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -176,12 +185,11 @@ export default function ProfilePage() {
             setEditedPhone(userData.phone || '');
           } else {
             console.error("No user document found in Firestore for UID:", user.uid);
-            // Create a basic user object if doc doesn't exist, to allow profile editing
              const basicUserData: UserType = {
               id: user.uid,
               name: user.displayName || t.defaultUserName,
               email: user.email || t.noEmail,
-              phone: '', // Initialize phone as empty
+              phone: '',
               avatarUrl: user.photoURL || '',
               joinDate: user.metadata.creationTime || new Date().toISOString(),
               isAdmin: false,
@@ -189,9 +197,6 @@ export default function ProfilePage() {
             setCurrentUser(basicUserData);
             setEditedName(basicUserData.name);
             setEditedPhone(basicUserData.phone || '');
-            // Optionally, save this basic profile to Firestore here if desired
-            // await setDoc(userDocRef, basicUserData); 
-            // toast({ title: t.profileErrorTitle, description: t.couldNotLoadProfile, variant: "destructive" });
           }
         } catch (error) {
           console.error("Error fetching user document:", error);
@@ -234,7 +239,7 @@ export default function ProfilePage() {
                 id: currentUser.id, 
                 name: currentUser.name, 
                 email: currentUser.email, 
-                phone: currentUser.phone, // Ensure phone is included
+                phone: currentUser.phone,
                 joinDate: currentUser.joinDate, 
                 isAdmin: currentUser.isAdmin 
             },
@@ -255,9 +260,56 @@ export default function ProfilePage() {
   }, [currentUser, toast, t]);
 
 
-  const userConversations = currentUser ? placeholderConversations.filter(
-    convo => convo.participants.some(p => p.id === currentUser!.id)
-  ) : [];
+  useEffect(() => {
+    if (!currentUser?.id) {
+      setIsLoadingMyConversations(false);
+      setMyConversations([]);
+      return;
+    }
+    setIsLoadingMyConversations(true);
+    const q = firestoreQuery(
+      collection(db, 'conversations'),
+      where('participantIds', 'array-contains', currentUser.id),
+      orderBy('lastMessage.timestamp', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const fetchedConversations: Conversation[] = [];
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        fetchedConversations.push({
+          id: docSnap.id,
+          listingId: data.listingId,
+          listing: data.listing,
+          participantIds: data.participantIds,
+          participants: data.participants,
+          lastMessage: {
+            text: data.lastMessage.text,
+            senderId: data.lastMessage.senderId,
+            timestamp: (data.lastMessage.timestamp as Timestamp)?.toDate().toISOString() || new Date(0).toISOString(),
+          },
+        } as Conversation);
+      });
+      setMyConversations(fetchedConversations);
+      setIsLoadingMyConversations(false);
+    }, (error) => {
+      console.error("Error fetching user conversations for profile:", error);
+      toast({ title: t.errorTitle, description: t.failedToLoadConversations, variant: "destructive" });
+      setIsLoadingMyConversations(false);
+    });
+    return () => unsubscribe();
+  }, [currentUser?.id, toast, t]);
+
+  useEffect(() => {
+    if (currentUser?.id && myConversations.length > 0) {
+      const count = myConversations.filter(
+        (convo) => convo.lastMessage.senderId !== currentUser.id
+      ).length;
+      setUnreadConversationCount(count);
+    } else {
+      setUnreadConversationCount(0);
+    }
+  }, [myConversations, currentUser?.id]);
+
 
   const handleLogout = async () => {
     try {
@@ -282,7 +334,7 @@ export default function ProfilePage() {
     const phoneChanged = editedPhone.trim() !== (currentUser.phone || '');
 
     if (!nameChanged && !phoneChanged) { 
-      return; // No changes made
+      return;
     }
 
     setIsSaving(true);
@@ -384,7 +436,15 @@ export default function ProfilePage() {
       <Tabs defaultValue="listings" className="w-full" dir={language === 'ar' ? 'rtl' : 'ltr'}>
         <TabsList className="grid w-full grid-cols-3 mb-6">
           <TabsTrigger value="listings"><ListChecks className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} />{t.myListingsTab}</TabsTrigger>
-          <TabsTrigger value="messages"><MessageSquare className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} />{t.messagesTab}</TabsTrigger>
+          <TabsTrigger value="messages" className="relative">
+            <MessageSquare className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} />
+            {t.messagesTab}
+            {unreadConversationCount > 0 && (
+              <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                {unreadConversationCount}
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="settings"><Settings className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} />{t.accountSettingsTab}</TabsTrigger>
         </TabsList>
 
@@ -442,28 +502,39 @@ export default function ProfilePage() {
               <CardDescription>{t.yourConversationsDesc}</CardDescription>
             </CardHeader>
             <CardContent>
-              {userConversations.length > 0 ? (
+              {isLoadingMyConversations ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
+                  <p className="text-muted-foreground">{t.loadingConversations}</p>
+                </div>
+              ) : myConversations.length > 0 ? (
                 <div className="space-y-4">
-                  {userConversations.map((convo) => (
-                    <Card key={convo.id} className="hover:shadow-md transition-shadow">
+                  {myConversations.map((convo) => {
+                    const otherParticipant = convo.participantIds
+                      .map(pid => convo.participants[pid])
+                      .find(p => p.id !== currentUser?.id);
+                    const isUnread = convo.lastMessage.senderId !== currentUser?.id;
+
+                    return (
+                    <Card key={convo.id} className={`hover:shadow-md transition-shadow ${isUnread ? 'border-primary' : ''}`}>
                       <Link href={`/messages?conversationId=${convo.id}`} className="block">
                         <CardContent className="p-4">
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-semibold text-md">
-                                {t.chatAboutLabel} <span className="text-primary">{convo.listingTitle || t.generalInquiry}</span>
+                              <p className={`font-semibold text-md ${isUnread ? 'text-primary' : ''}`}>
+                                {t.chatAboutLabel} <span className={isUnread ? 'font-bold' : 'text-primary'}>{convo.listing?.title || t.generalInquiry}</span>
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                {t.withLabel} {convo.participants.find(p => p.id !== currentUser?.id)?.name || t.unknownUser}
+                                {t.withLabel} {otherParticipant?.name || t.unknownUser}
                               </p>
                             </div>
-                            {convo.unreadCount > 0 && (
+                            {isUnread && (
                               <span className="text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">
-                                {convo.unreadCount} {t.newSuffix}
+                                {t.newSuffix}
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-foreground mt-1 truncate">
+                          <p className={`text-sm mt-1 truncate ${isUnread ? 'text-foreground font-medium' : 'text-foreground'}`}>
                            <span className="font-medium">{convo.lastMessage.senderId === currentUser?.id ? t.youPrefix : ""}</span> {convo.lastMessage.text}
                           </p>
                           <p className={`text-xs text-muted-foreground mt-1 ${language === 'ar' ? 'text-left' : 'text-right'}`}>
@@ -472,7 +543,8 @@ export default function ProfilePage() {
                         </CardContent>
                       </Link>
                     </Card>
-                  ))}
+                  );
+                 })}
                 </div>
               ) : (
                 <p className="text-muted-foreground">{t.noMessagesYet}</p>
@@ -553,3 +625,6 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+
+    
