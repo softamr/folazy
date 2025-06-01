@@ -2,6 +2,12 @@
 import type React from 'react';
 import type { LucideIcon as LucideIconType } from 'lucide-react'; // Keep for other uses if any, or for mapping
 
+export type NotificationPreferences = {
+  emailNewMessages?: boolean;
+  emailListingUpdates?: boolean;
+  // Add more preferences here as needed, e.g., emailPromotions?: boolean;
+};
+
 export type User = {
   id: string; // This will be the uid from Firebase Auth
   name: string;
@@ -10,6 +16,7 @@ export type User = {
   avatarUrl?: string;
   joinDate: string;
   isAdmin?: boolean;
+  notificationPreferences?: NotificationPreferences; // Added notification preferences
 };
 
 // Represents a category or subcategory structure as stored in Firestore
@@ -141,3 +148,4 @@ export type HeroBannerImage = {
   uploadedAt?: string; // ISO string timestamp
   // dataAiHint?: string; // Optional AI hint if admins provide it
 };
+

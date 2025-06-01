@@ -4,9 +4,9 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import type { Listing, Conversation, User as UserType } from '@/lib/types';
+import type { Listing, Conversation, User as UserType, NotificationPreferences } from '@/lib/types';
 import { ListingCard } from '@/components/ListingCard';
-import { User, Settings, ListChecks, LogOut, MessageSquare, Edit3, ShieldCheck, UserCircle as UserCircleIcon, Loader2, PackageOpen, CheckCircle, AlertTriangle, Hourglass, Save, Phone } from 'lucide-react';
+import { User, Settings, ListChecks, LogOut, MessageSquare, Edit3, ShieldCheck, UserCircle as UserCircleIcon, Loader2, PackageOpen, CheckCircle, AlertTriangle, Hourglass, Save, Phone, Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,8 +18,7 @@ import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase
 import { doc, getDoc, collection, query as firestoreQuery, where, onSnapshot, Timestamp, updateDoc, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
-// Placeholder data import removed as we will fetch real conversations
-// import { placeholderConversations } from '@/lib/placeholder-data';
+import { Switch } from '@/components/ui/switch';
 
 const translations = {
   en: {
@@ -57,7 +56,7 @@ const translations = {
     errorSavingChangesDesc: "Could not save your changes. Please try again.",
     securityPrivacyTitle: "Security & Privacy",
     changePasswordButton: "Change Password",
-    notificationPrefsButton: "Notification Preferences",
+    // notificationPrefsButton: "Notification Preferences", // Removed, will be new card
     manageBlockedUsersButton: "Manage Blocked Users",
     deleteAccountButton: "Delete Account",
     profileErrorTitle: "Profile Error",
@@ -83,6 +82,14 @@ const translations = {
     phonePlaceholder: "+20 XXX XXX XXXX",
     loadingConversations: "Loading conversations...",
     failedToLoadConversations: "Failed to load your conversations.",
+    notificationSettingsTitle: "Notification Settings",
+    notificationSettingsDesc: "Manage how you receive notifications.",
+    emailNewMessagesLabel: "Email for New Messages",
+    emailListingUpdatesLabel: "Email for Listing Status Updates",
+    saveNotificationSettingsButton: "Save Notification Settings",
+    savingNotificationSettingsButton: "Saving Settings...",
+    notificationSettingsSavedSuccess: "Notification settings saved.",
+    errorSavingNotificationSettings: "Could not save notification settings.",
   },
   ar: {
     loadingProfile: "جار تحميل الملف الشخصي...",
@@ -119,7 +126,7 @@ const translations = {
     errorSavingChangesDesc: "لم نتمكن من حفظ تغييراتك. يرجى المحاولة مرة أخرى.",
     securityPrivacyTitle: "الأمان والخصوصية",
     changePasswordButton: "تغيير كلمة المرور",
-    notificationPrefsButton: "تفضيلات الإشعارات",
+    // notificationPrefsButton: "تفضيلات الإشعارات",
     manageBlockedUsersButton: "إدارة المستخدمين المحظورين",
     deleteAccountButton: "حذف الحساب",
     profileErrorTitle: "خطأ في الملف الشخصي",
@@ -145,6 +152,14 @@ const translations = {
     phonePlaceholder: "+٢٠ XXX XXX XXXX",
     loadingConversations: "جار تحميل المحادثات...",
     failedToLoadConversations: "فشل تحميل محادثاتك.",
+    notificationSettingsTitle: "إعدادات الإشعارات",
+    notificationSettingsDesc: "تحكم في كيفية تلقي الإشعارات.",
+    emailNewMessagesLabel: "بريد إلكتروني للرسائل الجديدة",
+    emailListingUpdatesLabel: "بريد إلكتروني لتحديثات حالة الإعلان",
+    saveNotificationSettingsButton: "حفظ إعدادات الإشعارات",
+    savingNotificationSettingsButton: "جار حفظ الإعدادات...",
+    notificationSettingsSavedSuccess: "تم حفظ إعدادات الإشعارات.",
+    errorSavingNotificationSettings: "لم نتمكن من حفظ إعدادات الإشعارات.",
   }
 };
 
@@ -157,7 +172,7 @@ export default function ProfilePage() {
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingInfo, setIsSavingInfo] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [editedPhone, setEditedPhone] = useState('');
 
@@ -169,6 +184,13 @@ export default function ProfilePage() {
   const [myConversations, setMyConversations] = useState<Conversation[]>([]);
   const [isLoadingMyConversations, setIsLoadingMyConversations] = useState(true);
   const [unreadConversationCount, setUnreadConversationCount] = useState(0);
+
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
+    emailNewMessages: true,
+    emailListingUpdates: true,
+  });
+  const [isSavingNotifPrefs, setIsSavingNotifPrefs] = useState(false);
+
 
   useEffect(() => {
     setIsLoading(true);
@@ -183,6 +205,7 @@ export default function ProfilePage() {
             setCurrentUser(userData);
             setEditedName(userData.name || '');
             setEditedPhone(userData.phone || '');
+            setNotificationPrefs(userData.notificationPreferences || { emailNewMessages: true, emailListingUpdates: true });
           } else {
             console.error("No user document found in Firestore for UID:", user.uid);
              const basicUserData: UserType = {
@@ -193,10 +216,12 @@ export default function ProfilePage() {
               avatarUrl: user.photoURL || '',
               joinDate: user.metadata.creationTime || new Date().toISOString(),
               isAdmin: false,
+              notificationPreferences: { emailNewMessages: true, emailListingUpdates: true },
             };
             setCurrentUser(basicUserData);
             setEditedName(basicUserData.name);
             setEditedPhone(basicUserData.phone || '');
+            setNotificationPrefs(basicUserData.notificationPreferences);
           }
         } catch (error) {
           console.error("Error fetching user document:", error);
@@ -302,7 +327,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (currentUser?.id && myConversations.length > 0) {
       const count = myConversations.filter(
-        (convo) => convo.lastMessage.senderId !== currentUser.id
+        (convo) => convo.lastMessage.senderId !== currentUser.id // Simplified: assumes last message sender determines "unread" for badge
       ).length;
       setUnreadConversationCount(count);
     } else {
@@ -324,7 +349,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSaveChanges = async () => {
+  const handleSaveInfoChanges = async () => {
     if (!firebaseAuthUser || !currentUser) {
       toast({ title: t.errorTitle, description: t.failedToFetchDetails, variant: 'destructive' });
       return;
@@ -337,7 +362,7 @@ export default function ProfilePage() {
       return;
     }
 
-    setIsSaving(true);
+    setIsSavingInfo(true);
     try {
       const userDocRef = doc(db, "users", firebaseAuthUser.uid);
       const updateData: Partial<UserType> = {};
@@ -359,7 +384,25 @@ export default function ProfilePage() {
       console.error("Error saving changes:", error);
       toast({ title: t.errorTitle, description: t.errorSavingChangesDesc, variant: "destructive" });
     } finally {
-      setIsSaving(false);
+      setIsSavingInfo(false);
+    }
+  };
+
+  const handleSaveNotificationPreferences = async () => {
+    if (!firebaseAuthUser) {
+      toast({ title: t.errorTitle, description: t.failedToFetchDetails, variant: 'destructive' });
+      return;
+    }
+    setIsSavingNotifPrefs(true);
+    try {
+      const userDocRef = doc(db, "users", firebaseAuthUser.uid);
+      await updateDoc(userDocRef, { notificationPreferences: notificationPrefs });
+      toast({ title: t.notificationSettingsSavedSuccess });
+    } catch (error) {
+      console.error("Error saving notification preferences:", error);
+      toast({ title: t.errorTitle, description: t.errorSavingNotificationSettings, variant: "destructive" });
+    } finally {
+      setIsSavingNotifPrefs(false);
     }
   };
 
@@ -571,7 +614,7 @@ export default function ProfilePage() {
                     id="name" 
                     value={editedName} 
                     onChange={(e) => setEditedName(e.target.value)}
-                    disabled={isSaving}
+                    disabled={isSavingInfo}
                   />
                 </div>
                 <div>
@@ -589,16 +632,16 @@ export default function ProfilePage() {
                     placeholder={t.phonePlaceholder} 
                     value={editedPhone}
                     onChange={(e) => setEditedPhone(e.target.value)}
-                    disabled={isSaving}
+                    disabled={isSavingInfo}
                     dir="ltr" 
                   />
                 </div>
                 <Button 
                   className="w-full sm:w-auto" 
-                  onClick={handleSaveChanges} 
-                  disabled={isSaving || (editedName === (currentUser?.name || '') && editedPhone === (currentUser?.phone || ''))}
+                  onClick={handleSaveInfoChanges} 
+                  disabled={isSavingInfo || (editedName === (currentUser?.name || '') && editedPhone === (currentUser?.phone || ''))}
                 >
-                  {isSaving ? (
+                  {isSavingInfo ? (
                     <><Loader2 className={`h-4 w-4 animate-spin ${language === 'ar' ? 'ms-2' : 'me-2'}`} /> {t.savingChangesButton}</>
                   ) : (
                     <><Save className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} /> {t.saveChangesButton}</>
@@ -606,6 +649,53 @@ export default function ProfilePage() {
                 </Button>
               </CardContent>
             </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center text-xl">
+                  <Bell className={`h-5 w-5 ${language === 'ar' ? 'ms-2' : 'me-2'}`} /> {t.notificationSettingsTitle}
+                </CardTitle>
+                <CardDescription>{t.notificationSettingsDesc}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between space-x-2 rtl:space-x-reverse">
+                  <Label htmlFor="emailNewMessages" className="flex-grow cursor-pointer">
+                    {t.emailNewMessagesLabel}
+                  </Label>
+                  <Switch
+                    id="emailNewMessages"
+                    checked={notificationPrefs.emailNewMessages}
+                    onCheckedChange={(checked) => setNotificationPrefs(prev => ({ ...prev, emailNewMessages: checked }))}
+                    disabled={isSavingNotifPrefs}
+                    dir={language === 'ar' ? 'rtl' : 'ltr'}
+                  />
+                </div>
+                <div className="flex items-center justify-between space-x-2 rtl:space-x-reverse">
+                  <Label htmlFor="emailListingUpdates" className="flex-grow cursor-pointer">
+                    {t.emailListingUpdatesLabel}
+                  </Label>
+                  <Switch
+                    id="emailListingUpdates"
+                    checked={notificationPrefs.emailListingUpdates}
+                    onCheckedChange={(checked) => setNotificationPrefs(prev => ({ ...prev, emailListingUpdates: checked }))}
+                    disabled={isSavingNotifPrefs}
+                    dir={language === 'ar' ? 'rtl' : 'ltr'}
+                  />
+                </div>
+                <Button
+                  className="w-full sm:w-auto"
+                  onClick={handleSaveNotificationPreferences}
+                  disabled={isSavingNotifPrefs}
+                >
+                  {isSavingNotifPrefs ? (
+                    <><Loader2 className={`h-4 w-4 animate-spin ${language === 'ar' ? 'ms-2' : 'me-2'}`} /> {t.savingNotificationSettingsButton}</>
+                  ) : (
+                    <>{t.saveNotificationSettingsButton}</>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center text-xl">
@@ -614,7 +704,7 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent className="space-y-3">
                  <Button variant="outline" className="w-full" onClick={() => toast({title: t.notImplemented})}>{t.changePasswordButton}</Button>
-                 <Button variant="outline" className="w-full" onClick={() => toast({title: t.notImplemented})}>{t.notificationPrefsButton}</Button>
+                 {/* Removed Notification Preferences button from here */}
                  <Button variant="outline" className="w-full" onClick={() => toast({title: t.notImplemented})}>{t.manageBlockedUsersButton}</Button>
                  <Button variant="destructive" className="w-full mt-4" onClick={() => toast({title: t.notImplemented})}>{t.deleteAccountButton}</Button>
               </CardContent>
@@ -625,6 +715,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-
-    
