@@ -295,6 +295,12 @@ export function FilterBar() {
              'businesses & industrial': 'أعمال وصناعة',
              'agriculture equipment': 'معدات زراعية',
              'fashion & beauty': 'أزياء وجمال',
+             'furniture & decor':'اثاث وديكور',
+             'kids & babies':'اطفال ورضع',
+             'services':'خدمات',
+             'construction equipment':'معدات بناء',
+             'industrial equipment':'معدات صناعية',
+             'medical equipment':'معدات طبية',
         };
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
@@ -304,7 +310,23 @@ export function FilterBar() {
   };
 
   const getLocationName = (locationItem: LocationCountry | LocationGovernorate | LocationDistrict): string => {
-    // Placeholder: ideally, location names would also be translated if needed
+    if (language === 'ar') {
+        const arLocationNames: Record<string, string> = {
+            // Countries
+            'egypt': 'مصر',
+            // Governorates - Add more as needed
+            'cairo': 'القاهرة',
+            'alexandria': 'الإسكندرية',
+            'giza': 'الجيزة',
+            // Districts - Add more as needed
+            'zamalek': 'الزمالك',
+            'maadi': 'المعادي',
+            'nasr-city': 'مدينة نصر',
+        };
+        const locationIdLower = locationItem.id.toLowerCase();
+        const locationNameLower = locationItem.name.toLowerCase();
+        return arLocationNames[locationIdLower] || arLocationNames[locationNameLower] || locationItem.name;
+    }
     return locationItem.name;
   }
 
