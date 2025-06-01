@@ -234,9 +234,19 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
         const arNames: Record<string, string> = {
              'electronics': 'إلكترونيات', 'vehicles': 'مركبات', 'properties': 'عقارات',
              'mobiles': 'هواتف محمولة', 'tablets': 'أجهزة لوحية', 'cars': 'سيارات',
-             'apartments for rent': 'شقق للإيجار',
+             'apartments for rent': 'شقق للإيجار', 
              'properties for rent': 'عقارات للإيجار', 
              'properties for sale': 'عقارات للبيع',
+             'businesses & industrial': 'أعمال وصناعة',
+             'agriculture equipment': 'معدات زراعية',
+             'construction equipment': 'معدات بناء',
+             'industrial equipment': 'معدات صناعية',
+             'medical equipment': 'معدات طبية',
+             'tv - audio - video': 'تلفزيونات - صوتيات - فيديو',
+             'mobile & tablet accessories': 'اكسسوارات موبايل وتابلت',
+             'apartments for sale': 'شقق للبيع',
+             'villas for rent': 'فلل للإيجار',
+             'villas for sale': 'فلل للبيع',
         };
         const catIdLower = cat.id?.toLowerCase() || '';
         const catNameLower = cat.name?.toLowerCase() || '';
@@ -349,3 +359,4 @@ function CardSkeleton() {
     </div>
   );
 }
+
