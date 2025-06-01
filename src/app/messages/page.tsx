@@ -268,7 +268,7 @@ export default function MessagesPage() {
       return; 
     }
 
-    if (listingIdParam && recipientIdParam && currentUser.id) { // Ensure currentUser.id is available
+    if (listingIdParam && recipientIdParam && currentUser.id) { 
       const deterministicId = getDeterministicConversationId(currentUser.id, recipientIdParam, listingIdParam);
       const existingConvo = conversations.find(c => c.id === deterministicId);
 
@@ -299,7 +299,7 @@ export default function MessagesPage() {
               listing: { 
                 id: listingData.id, 
                 title: listingData.title,
-                imageUrl: listingData.images?.[0] || null // Ensure null if undefined
+                imageUrl: listingData.images?.[0] || null 
               },
               participantIds: [currentUser.id, recipientData.id].sort(),
               participants: {
@@ -341,8 +341,8 @@ export default function MessagesPage() {
     if (!conversationIdParam && !listingIdParam && selectedConversation) {
       setSelectedConversation(null);
     }
-    return;
-
+    // Removed selectedConversation from dependency array as it caused issues.
+    // The effect should set selectedConversation, not react to its changes.
   }, [
     conversationIdParam, listingIdParam, recipientIdParam, 
     currentUser, 
@@ -438,7 +438,7 @@ export default function MessagesPage() {
               <Button
                 key={convo.id}
                 variant="ghost"
-                className={`w-full justify-start p-3 h-auto rounded-none border-b ${selectedConversation?.id === convo.id ? 'bg-muted' : ''}`}
+                className={`w-full justify-start p-3 h-auto rounded-none border-b ${selectedConversation?.id === convo.id ? 'bg-muted' : 'hover:bg-muted/70'}`}
                 onClick={() => router.push(`/messages?conversationId=${convo.id}`)}
               >
                 <Avatar className={`h-10 w-10 ${language === 'ar' ? 'ms-3' : 'me-3'}`}>
