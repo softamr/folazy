@@ -35,20 +35,22 @@ export function ListingCard({ listing }: ListingCardProps) {
     if (!item) return '';
     if (language === 'ar') {
       const arNames: Record<string, string> = {
-        // Main Categories - IDs first, then English names as fallback
+        // Main Categories
         'electronics': 'إلكترونيات',
         'vehicles': 'مركبات',
         'properties': 'عقارات',
         'jobs': 'وظائف',
         'furniture & home decor': 'أثاث وديكور منزلي',
+        'furniture & decor': 'أثاث وديكور',
         'fashion & beauty': 'أزياء وجمال',
         'pets': 'حيوانات أليفة',
         'kids & babies': 'مستلزمات أطفال ورضع',
         'books, sports & hobbies': 'كتب، رياضة وهوايات',
         'services': 'خدمات',
         'business & industrial': 'أعمال وصناعة',
+        'businesses & industrial': 'أعمال وصناعة',
 
-        // Subcategories - IDs first, then English names as fallback
+        // Subcategories
         'mobiles': 'هواتف محمولة',
         'mobile phones': 'هواتف محمولة',
         'tablets': 'أجهزة لوحية',
@@ -56,11 +58,15 @@ export function ListingCard({ listing }: ListingCardProps) {
         'cameras': 'كاميرات',
         'phones & tablets': 'الهواتف والأجهزة اللوحية',
         'cars': 'سيارات',
+        'cars for sale': 'سيارات للبيع',
+        'cars for rent': 'سيارات للإيجار',
         'motorcycles': 'دراجات نارية',
         'auto accessories': 'اكسسوارات سيارات',
         'heavy vehicles': 'مركبات ثقيلة',
         'apartments for rent': 'شقق للإيجار',
+        'apartments for sale': 'شقق للبيع',
         'villas for sale': 'فلل للبيع',
+        'villas for rent': 'فلل للإيجار',
         'commercial for rent': 'تجاري للإيجار',
         'properties for rent': 'عقارات للإيجار',
         'properties for sale': 'عقارات للبيع',
@@ -88,7 +94,13 @@ export function ListingCard({ listing }: ListingCardProps) {
         'office equipment': 'معدات مكتبية',
         'heavy machinery': 'معدات ثقيلة',
         'supplies': 'لوازم أعمال',
-        'unknown': 'غير معروف', // For fallback
+        'agriculture equipment': 'معدات زراعية',
+        'construction equipment': 'معدات بناء',
+        'industrial equipment': 'معدات صناعية',
+        'medical equipment': 'معدات طبية',
+        'tv - audio - video': 'تلفزيونات - صوتيات - فيديو',
+        'mobile & tablet accessories': 'اكسسوارات موبايل وتابلت',
+        'unknown': 'غير معروف',
       };
       const itemIdLower = item.id.toLowerCase();
       const itemNameLower = item.name.toLowerCase();
