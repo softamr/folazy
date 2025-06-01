@@ -52,6 +52,12 @@ const nextConfig: NextConfig = {
         hostname: 'back.mansoura-eco-build.com',
         port: '',
         pathname: '/**',
+      },
+      { // Added for emaratalyoum.com
+        protocol: 'https',
+        hostname: 'www.emaratalyoum.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
