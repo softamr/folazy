@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Listing, Conversation, User as UserType } from '@/lib/types';
 import { ListingCard } from '@/components/ListingCard';
-import { User, Settings, ListChecks, LogOut, MessageSquare, Edit3, ShieldCheck, UserCircle as UserCircleIcon, Loader2, PackageOpen, CheckCircle, AlertTriangle, Hourglass } from 'lucide-react';
+import { User, Settings, ListChecks, LogOut, MessageSquare, Edit3, ShieldCheck, UserCircle as UserCircleIcon, Loader2, PackageOpen, CheckCircle, AlertTriangle, Hourglass, Save } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, collection, query as firestoreQuery, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, query as firestoreQuery, where, onSnapshot, Timestamp, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { placeholderConversations } from '@/lib/placeholder-data';
@@ -49,7 +49,11 @@ const translations = {
     fullNameLabel: "Full Name",
     emailAddressLabel: "Email Address",
     phoneOptionalLabel: "Phone Number (Optional)",
-    saveChangesButton: "Save Changes (Not implemented)",
+    saveChangesButton: "Save Changes",
+    savingChangesButton: "Saving...",
+    changesSavedSuccessTitle: "Changes Saved",
+    changesSavedSuccessDesc: "Your profile information has been updated.",
+    errorSavingChangesDesc: "Could not save your changes. Please try again.",
     securityPrivacyTitle: "Security & Privacy",
     changePasswordButton: "Change Password",
     notificationPrefsButton: "Notification Preferences",
@@ -105,7 +109,11 @@ const translations = {
     fullNameLabel: "الاسم الكامل",
     emailAddressLabel: "عنوان البريد الإلكتروني",
     phoneOptionalLabel: "رقم الهاتف (اختياري)",
-    saveChangesButton: "حفظ التغييرات (غير مطبق)",
+    saveChangesButton: "حفظ التغييرات",
+    savingChangesButton: "جار الحفظ...",
+    changesSavedSuccessTitle: "تم حفظ التغييرات",
+    changesSavedSuccessDesc: "تم تحديث معلومات ملفك الشخصي بنجاح.",
+    errorSavingChangesDesc: "لم نتمكن من حفظ تغييراتك. يرجى المحاولة مرة أخرى.",
     securityPrivacyTitle: "الأمان والخصوصية",
     changePasswordButton: "تغيير كلمة المرور",
     notificationPrefsButton: "تفضيلات الإشعارات",
@@ -144,6 +152,10 @@ export default function ProfilePage() {
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editedName, setEditedName] = useState('');
+  // Add state for phone if you decide to implement saving it later
+  // const [editedPhone, setEditedPhone] = useState('');
 
   const [approvedListings, setApprovedListings] = useState<Listing[]>([]);
   const [pendingListings, setPendingListings] = useState<Listing[]>([]);
@@ -159,7 +171,10 @@ export default function ProfilePage() {
           const userDocRef = doc(db, "users", user.uid);
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
-            setCurrentUser(userDocSnap.data() as UserType);
+            const userData = userDocSnap.data() as UserType;
+            setCurrentUser(userData);
+            setEditedName(userData.name || '');
+            // setEditedPhone(userData.phone || ''); // If phone exists in UserType
           } else {
             console.error("No user document found in Firestore for UID:", user.uid);
             toast({ title: t.profileErrorTitle, description: t.couldNotLoadProfile, variant: "destructive" });
@@ -236,6 +251,34 @@ export default function ProfilePage() {
       toast({ title: t.logoutFailedTitle, description: t.logoutFailedDesc, variant: 'destructive' });
     }
   };
+
+  const handleSaveChanges = async () => {
+    if (!firebaseAuthUser || !currentUser) {
+      toast({ title: t.errorTitle, description: t.failedToFetchDetails, variant: 'destructive' });
+      return;
+    }
+    if (editedName.trim() === currentUser.name) { // No changes made to name
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const userDocRef = doc(db, "users", firebaseAuthUser.uid);
+      const updateData: Partial<UserType> = {
+        name: editedName.trim(),
+        // phone: editedPhone.trim(), // If phone saving is implemented
+      };
+      await updateDoc(userDocRef, updateData);
+      setCurrentUser(prev => prev ? { ...prev, name: editedName.trim() } : null);
+      toast({ title: t.changesSavedSuccessTitle, description: t.changesSavedSuccessDesc });
+    } catch (error) {
+      console.error("Error saving changes:", error);
+      toast({ title: t.errorTitle, description: t.errorSavingChangesDesc, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -420,17 +463,32 @@ export default function ProfilePage() {
               <CardContent className="space-y-4">
                 <div>
                   <Label htmlFor="name">{t.fullNameLabel}</Label>
-                  <Input id="name" defaultValue={displayName} />
+                  <Input 
+                    id="name" 
+                    value={editedName} 
+                    onChange={(e) => setEditedName(e.target.value)}
+                    disabled={isSaving}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="email">{t.emailAddressLabel}</Label>
-                  <Input id="email" type="email" defaultValue={displayEmail} disabled />
+                  <Input id="email" type="email" value={displayEmail} disabled />
                 </div>
                 <div>
                   <Label htmlFor="phone">{t.phoneOptionalLabel}</Label>
-                  <Input id="phone" type="tel" placeholder={t.phonePlaceholder} />
+                  <Input id="phone" type="tel" placeholder={t.phonePlaceholder} disabled />
                 </div>
-                <Button className="w-full sm:w-auto" onClick={() => toast({title: t.notImplemented}) }><Edit3 className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} />{t.saveChangesButton}</Button>
+                <Button 
+                  className="w-full sm:w-auto" 
+                  onClick={handleSaveChanges} 
+                  disabled={isSaving || editedName === (currentUser?.name || '')}
+                >
+                  {isSaving ? (
+                    <><Loader2 className={`h-4 w-4 animate-spin ${language === 'ar' ? 'ms-2' : 'me-2'}`} /> {t.savingChangesButton}</>
+                  ) : (
+                    <><Save className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'}`} /> {t.saveChangesButton}</>
+                  )}
+                </Button>
               </CardContent>
             </Card>
             <Card>
@@ -452,3 +510,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+
