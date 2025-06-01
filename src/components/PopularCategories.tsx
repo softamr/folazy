@@ -63,21 +63,55 @@ export function PopularCategories() {
    const getSubCategoryName = (subcategory: Category): string => {
     if (language === 'ar') {
         const arNames: Record<string, string> = {
+            // Electronics
+            'mobiles': 'هواتف محمولة',
             'mobile phones': 'هواتف محمولة',
             'tablets': 'أجهزة لوحية',
-            'cars': 'سيارات',
-            'motorcycles': 'دراجات نارية',
-            'apartments for rent': 'شقق للإيجار',
-            'apartments for sale': 'شقق للبيع',
-            'villas for sale': 'فلل للبيع',
-            'laptops': 'كمبيوتر محمول',
+            'laptops': 'كمبيوتر محمول', // Alias for 'laptops'
+            'laptop': 'كمبيوتر محمول', // Common singular form often used as ID
             'cameras': 'كاميرات',
-            'phones & tablets': 'الهواتف والأجهزة اللوحية',
+            'tv - audio - video': 'تلفزيونات - صوتيات - فيديو',
+            'mobile & tablet accessories': 'اكسسوارات موبايل وتابلت',
+            'phones & tablets': 'الهواتف والأجهزة اللوحية', // More general
+
+            // Vehicles
+            'cars': 'سيارات',
+            'cars for sale': 'سيارات للبيع',
+            'cars-for-sale': 'سيارات للبيع',
+            'cars for rent': 'سيارات للإيجار',
+            'cars-for-rent': 'سيارات للإيجار',
+            'motorcycles': 'دراجات نارية',
+            'auto accessories': 'اكسسوارات سيارات',
+            'heavy vehicles': 'مركبات ثقيلة',
+
+            // Properties
+            'apartments for rent': 'شقق للإيجار',
+            'apartments-for-rent': 'شقق للإيجار',
+            'apartments for sale': 'شقق للبيع',
+            'apartments-for-sale': 'شقق للبيع',
+            'villas for sale': 'فلل للبيع',
+            'villas-for-sale': 'فلل للبيع',
+            'villas for rent': 'فلل للإيجار',
+            'villas-for-rent': 'فلل للإيجار',
             'properties for rent': 'عقارات للإيجار',
+            'properties-for-rent': 'عقارات للإيجار',
             'properties for sale': 'عقارات للبيع',
+            'properties-for-sale': 'عقارات للبيع',
+            'commercial for rent': 'تجاري للإيجار',
+
+            // Business & Industrial
             'agriculture equipment': 'معدات زراعية',
             'construction equipment': 'معدات بناء',
-            'tv - audio - video': 'تلفزيونات - صوتيات - فيديو',
+            'industrial equipment': 'معدات صناعية',
+            'medical equipment': 'معدات طبية',
+            'office equipment': 'معدات مكتبية',
+
+            // Other common subcategories
+            'clothing': 'ملابس',
+            'shoes': 'أحذية',
+            'jewelry': 'مجوهرات',
+            'toys': 'ألعاب',
+            'books': 'كتب',
         };
         const subcategoryIdLower = subcategory.id.toLowerCase();
         const subcategoryNameLower = subcategory.name.toLowerCase();
@@ -201,3 +235,4 @@ export function PopularCategories() {
     </section>
   );
 }
+
