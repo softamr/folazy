@@ -1,0 +1,141 @@
+
+{
+  "indexes": [
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "isFeatured", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "category.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "category.id", "order": "ASCENDING"},
+        {"fieldPath": "subcategory.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "locationCountry.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "locationCountry.id", "order": "ASCENDING"},
+        {"fieldPath": "locationGovernorate.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "locationCountry.id", "order": "ASCENDING"},
+        {"fieldPath": "locationGovernorate.id", "order": "ASCENDING"},
+        {"fieldPath": "locationDistrict.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "category.id", "order": "ASCENDING"},
+        {"fieldPath": "locationCountry.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "category.id", "order": "ASCENDING"},
+        {"fieldPath": "subcategory.id", "order": "ASCENDING"},
+        {"fieldPath": "locationCountry.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "category.id", "order": "ASCENDING"},
+        {"fieldPath": "locationCountry.id", "order": "ASCENDING"},
+        {"fieldPath": "locationGovernorate.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "category.id", "order": "ASCENDING"},
+        {"fieldPath": "subcategory.id", "order": "ASCENDING"},
+        {"fieldPath": "locationCountry.id", "order": "ASCENDING"},
+        {"fieldPath": "locationGovernorate.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "category.id", "order": "ASCENDING"},
+        {"fieldPath": "locationCountry.id", "order": "ASCENDING"},
+        {"fieldPath": "locationGovernorate.id", "order": "ASCENDING"},
+        {"fieldPath": "locationDistrict.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "category.id", "order": "ASCENDING"},
+        {"fieldPath": "subcategory.id", "order": "ASCENDING"},
+        {"fieldPath": "locationCountry.id", "order": "ASCENDING"},
+        {"fieldPath": "locationGovernorate.id", "order": "ASCENDING"},
+        {"fieldPath": "locationDistrict.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "seller.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
