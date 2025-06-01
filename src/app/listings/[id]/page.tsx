@@ -3,7 +3,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Listing } from '@/lib/types';
+import type { Listing, ListingCategoryInfo, LocationRef } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -37,7 +37,7 @@ async function getListingFromFirestore(id: string, isAdminViewing: boolean = fal
       id: listingDocSnap.id,
       ...data,
       postedDate: postedDate as string,
-      category: data.category || { id: 'unknown', name: 'Unknown' },
+      category: data.category || { id: 'unknown', name: 'Unknown' }, // Default name handled in component
       seller: data.seller || {
         id: 'unknown_seller',
         name: 'Unknown Seller',
@@ -137,6 +137,61 @@ export default function ListingPage({ params: paramsProp }: ListingPageProps) {
       });
   }, [listingId, searchParams, t.unknown]);
 
+  const getTranslatedName = (item: ListingCategoryInfo | undefined): string => {
+    if (!item) return t.unknown;
+    if (language === 'ar') {
+      const arNames: Record<string, string> = {
+        // Main Categories
+        'electronics': 'إلكترونيات', 'vehicles': 'مركبات', 'properties': 'عقارات',
+        'jobs': 'وظائف', 'furniture & home decor': 'أثاث وديكور منزلي',
+        'furniture & decor': 'أثاث وديكور', 'fashion & beauty': 'أزياء وجمال',
+        'pets': 'حيوانات أليفة', 'kids & babies': 'أطفال ورضع',
+        'books, sports & hobbies': 'كتب، رياضة وهوايات', 'services': 'خدمات',
+        'business & industrial': 'أعمال وصناعة', 'businesses & industrial': 'أعمال وصناعة',
+        // Subcategories
+        'mobiles': 'هواتف محمولة', 'mobile phones': 'هواتف محمولة', 'tablets': 'أجهزة لوحية',
+        'laptops': 'لابتوبات', 'cameras': 'كاميرات', 'phones & tablets': 'الهواتف والأجهزة اللوحية',
+        'cars': 'سيارات', 'cars for sale': 'سيارات للبيع', 'cars for rent': 'سيارات للإيجار',
+        'motorcycles': 'دراجات نارية', 'auto accessories': 'اكسسوارات سيارات', 'heavy vehicles': 'مركبات ثقيلة',
+        'apartments for rent': 'شقق للإيجار', 'apartments for sale': 'شقق للبيع',
+        'villas for sale': 'فلل للبيع', 'villas for rent': 'فلل للإيجار',
+        'commercial for rent': 'تجاري للإيجار', 'properties for rent': 'عقارات للإيجار',
+        'properties for sale': 'عقارات للبيع', 'accounting': 'محاسبة', 'sales': 'مبيعات',
+        'it': 'تكنولوجيا المعلومات', 'sofas': 'أرائك', 'beds': 'أسرة',
+        'home accessories': 'اكسسوارات منزلية', 'clothing': 'ملابس', 'shoes': 'أحذية',
+        'jewelry': 'مجوهرات', 'dogs': 'كلاب', 'cats': 'قطط', 'birds': 'طيور',
+        'toys': 'ألعاب', 'strollers': 'عربات أطفال', 'baby gear': 'مستلزمات أطفال',
+        'books': 'كتب', 'sports equipment': 'معدات رياضية', 'musical instruments': 'آلات موسيقية',
+        'cleaning': 'تنظيف', 'tutoring': 'دروس خصوصية', 'repair': 'تصليح',
+        'office equipment': 'معدات مكتبية', 'heavy machinery': 'معدات ثقيلة',
+        'supplies': 'لوازم أعمال', 'agriculture equipment': 'معدات زراعية',
+        'construction equipment': 'معدات بناء', 'industrial equipment': 'معدات صناعية',
+        'medical equipment': 'معدات طبية', 'tv - audio - video': 'تلفزيونات - صوتيات - فيديو',
+        'mobile & tablet accessories': 'اكسسوارات موبايل وتابلت', 'unknown': 'غير معروف',
+      };
+      const itemIdLower = item.id.toLowerCase();
+      const itemNameLower = item.name.toLowerCase();
+      return arNames[itemIdLower] || arNames[itemNameLower] || item.name;
+    }
+    return item.name || t.unknown;
+  };
+
+  const arLocationNames: Record<string, string> = {
+    'egypt': 'مصر', 'cairo': 'القاهرة', 'alexandria': 'الإسكندرية', 'giza': 'الجيزة',
+    'maadi': 'المعادي', 'zamalek': 'الزمالك', 'nasr city': 'مدينة نصر', 'nasr-city': 'مدينة نصر',
+    'new cairo': 'القاهرة الجديدة', 'heliopolis': 'مصر الجديدة',
+  };
+
+  const getTranslatedLocationPart = (locationPartNameEng: string | undefined): string => {
+    if (!locationPartNameEng) return '';
+    if (language === 'ar') {
+        const nameLower = locationPartNameEng.toLowerCase();
+        return arLocationNames[nameLower] || locationPartNameEng;
+    }
+    return locationPartNameEng;
+  };
+
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-15rem)] py-12">
@@ -159,9 +214,35 @@ export default function ListingPage({ params: paramsProp }: ListingPageProps) {
   }
 
   const seller = listing.seller;
-  const categoryPath = listing.subcategory
-    ? `${listing.category.name} > ${listing.subcategory.name}`
-    : listing.category.name;
+
+  const translatedCategoryName = getTranslatedName(listing.category);
+  const translatedSubcategoryName = listing.subcategory ? getTranslatedName(listing.subcategory) : '';
+  const displayCategoryPath = translatedSubcategoryName
+    ? `${translatedCategoryName} > ${translatedSubcategoryName}`
+    : translatedCategoryName;
+
+  let displayLocation = listing.location; // Fallback to the pre-formatted English string
+  const districtNameTranslated = getTranslatedLocationPart(listing.locationDistrict?.name);
+  const governorateNameTranslated = getTranslatedLocationPart(listing.locationGovernorate?.name);
+  const countryNameTranslated = getTranslatedLocationPart(listing.locationCountry?.name);
+
+  if (language === 'ar') {
+      const partsAr = [districtNameTranslated, governorateNameTranslated, countryNameTranslated].filter(Boolean);
+      if (partsAr.length > 0) {
+          displayLocation = partsAr.join('، ');
+      }
+  } else {
+      // For English, use structured data if available, otherwise use listing.location
+      const partsEn = [
+          listing.locationDistrict?.name,
+          listing.locationGovernorate?.name,
+          listing.locationCountry?.name
+      ].filter(Boolean);
+      if (partsEn.length > 0) {
+          displayLocation = partsEn.join(', ');
+      }
+  }
+
 
   return (
     <div className="max-w-4xl mx-auto py-8">
@@ -230,18 +311,18 @@ export default function ListingPage({ params: paramsProp }: ListingPageProps) {
           <div className="flex flex-col md:flex-row justify-between md:items-start mb-4">
             <CardTitle className="text-3xl font-bold text-foreground mb-2 md:mb-0">{listing.title}</CardTitle>
             <Badge variant="default" className="text-2xl py-2 px-4 bg-primary text-primary-foreground">
-              {listing.price.toLocaleString()} <span className={`text-lg font-normal ${language === 'ar' ? 'me-1' : 'ms-1'}`}>{t.currencySymbol}</span>
+              {listing.price.toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US')} <span className={`text-lg font-normal ${language === 'ar' ? 'me-1' : 'ms-1'}`}>{t.currencySymbol}</span>
             </Badge>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm text-muted-foreground mb-6">
             <div className="flex items-center">
               <MapPin className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'} shrink-0 text-primary`} />
-              <span>{listing.location}</span>
+              <span>{displayLocation}</span>
             </div>
             <div className="flex items-center">
               <Tag className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'} shrink-0 text-primary`} />
-              <span>{categoryPath}</span>
+              <span>{displayCategoryPath}</span>
             </div>
             <div className="flex items-center col-span-1 sm:col-span-2">
               <CalendarDays className={`h-4 w-4 ${language === 'ar' ? 'ms-2' : 'me-2'} shrink-0 text-primary`} />
@@ -283,3 +364,4 @@ export default function ListingPage({ params: paramsProp }: ListingPageProps) {
     </div>
   );
 }
+
