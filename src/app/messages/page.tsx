@@ -143,7 +143,7 @@ export default function MessagesPage() {
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
             setCurrentUser({ id: userDocSnap.id, ...userDocSnap.data() } as UserType);
-          } else { // Fallback for users authenticated but without a Firestore doc (e.g. admin created)
+          } else { 
             setCurrentUser({
               id: user.uid, name: user.displayName || user.email || "User",
               email: user.email || "", avatarUrl: user.photoURL || "",
@@ -167,6 +167,7 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!currentUser) {
       setConversations([]);
+      setIsLoadingConversations(false);
       return;
     }
 
@@ -187,7 +188,7 @@ export default function MessagesPage() {
             listingId: data.listingId,
             listing: data.listing,
             participantIds: data.participantIds,
-            participants: data.participants, // Assume participants basic info is stored
+            participants: data.participants, 
             lastMessage: {
               text: data.lastMessage.text,
               senderId: data.lastMessage.senderId,
@@ -218,7 +219,7 @@ export default function MessagesPage() {
     const messagesQuery = query(
       collection(db, 'conversations', selectedConversation.id, 'messages'),
       orderBy('timestamp', 'asc'),
-      limit(50) // Load last 50 messages
+      limit(50) 
     );
     const unsubscribeMessages = onSnapshot(messagesQuery, (querySnapshot) => {
       const fetchedMessages: MessageType[] = [];
@@ -247,16 +248,18 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (isLoadingAuth || isLoadingConversations) return;
+    if (!currentUser) return;
+
 
     if (conversationIdParam) {
       const target = conversations.find(c => c.id === conversationIdParam);
       if (target && (!selectedConversation || selectedConversation.id !== target.id)) {
         setSelectedConversation(target);
       }
-      return;
+      return; 
     }
 
-    if (listingIdParam && recipientIdParam && currentUser && conversations) {
+    if (listingIdParam && recipientIdParam) {
       const deterministicId = getDeterministicConversationId(currentUser.id, recipientIdParam, listingIdParam);
       const existingConvo = conversations.find(c => c.id === deterministicId);
 
@@ -265,7 +268,7 @@ export default function MessagesPage() {
           setSelectedConversation(existingConvo);
         }
       } else {
-        // Create new conversation if it doesn't exist
+        
         const createNewConversation = async () => {
           try {
             const recipientDocRef = doc(db, "users", recipientIdParam);
@@ -297,7 +300,7 @@ export default function MessagesPage() {
               },
               lastMessage: {
                 text: t.conversationCreated,
-                senderId: 'system', // System message
+                senderId: 'system', 
                 timestamp: new Date().toISOString(),
               },
             };
@@ -306,8 +309,16 @@ export default function MessagesPage() {
               ...newConversationData,
               lastMessage: { ...newConversationData.lastMessage, timestamp: serverTimestamp() }
             });
-            // The onSnapshot listener for conversations should pick this up.
-            // Then this useEffect will run again and set it as selected.
+            
+            // Optimistically set the selected conversation
+            const newConvObjectForState: Conversation = {
+              id: deterministicId,
+              ...newConversationData,
+              // Use a client-side timestamp for immediate display in lastMessage
+              lastMessage: { ...newConversationData.lastMessage, timestamp: new Date().toISOString() } 
+            };
+            setSelectedConversation(newConvObjectForState);
+
             router.replace(`/messages?conversationId=${deterministicId}`, undefined, { shallow: true });
 
           } catch (error) {
@@ -319,7 +330,6 @@ export default function MessagesPage() {
         createNewConversation();
       }
     } else if (!conversationIdParam && !listingIdParam && selectedConversation) {
-      // If navigating to /messages directly, clear selection
       setSelectedConversation(null);
     }
 
@@ -339,7 +349,7 @@ export default function MessagesPage() {
         senderId: currentUser.id,
         receiverId: otherParticipantId,
         text: newMessage.trim(),
-        timestamp: serverTimestamp(), // Firestore server timestamp
+        timestamp: serverTimestamp(), 
         isRead: false,
       };
       await addDoc(collection(db, 'conversations', selectedConversation.id, 'messages'), messageData);
@@ -352,7 +362,6 @@ export default function MessagesPage() {
         },
       });
       setNewMessage('');
-      // toast({ title: t.messageSent }); // Optional: confirmation toast
     } catch (error) {
       console.error("Error sending message:", error);
       toast({ title: t.errorTitle, description: t.failedToSendMessage, variant: "destructive" });
@@ -408,7 +417,7 @@ export default function MessagesPage() {
             {conversations.map((convo) => {
               const otherParticipant = getOtherParticipantInfo(convo);
               const lastMsgTimestamp = convo.lastMessage.timestamp ? new Date(convo.lastMessage.timestamp).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }) : '';
-              const isUnread = convo.lastMessage.senderId !== currentUser?.id; // Simplified unread
+              const isUnread = convo.lastMessage.senderId !== currentUser?.id; 
               return (
               <Button
                 key={convo.id}
@@ -458,7 +467,7 @@ export default function MessagesPage() {
               <div className="flex items-center">
                  <Button variant="ghost" size="icon" onClick={() => {
                     setSelectedConversation(null);
-                    router.push('/messages'); // Clear URL params
+                    router.push('/messages'); 
                   }} className="md:hidden me-2">
                    <ArrowLeft className="h-5 w-5"/>
                  </Button>
@@ -529,3 +538,4 @@ export default function MessagesPage() {
     </div>
   );
 }
+
