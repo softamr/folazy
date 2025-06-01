@@ -135,6 +135,34 @@
         {"fieldPath": "seller.id", "order": "ASCENDING"},
         {"fieldPath": "postedDate", "order": "DESCENDING"}
       ]
+    },
+    {
+      "collectionGroup": "categories",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "order", "order": "ASCENDING"},
+        {"fieldPath": "name", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "isFeatured", "order": "ASCENDING"},
+        {"fieldPath": "category.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "listings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "isFeatured", "order": "ASCENDING"},
+        {"fieldPath": "locationCountry.id", "order": "ASCENDING"},
+        {"fieldPath": "postedDate", "order": "DESCENDING"}
+      ]
     }
   ],
   "fieldOverrides": []
