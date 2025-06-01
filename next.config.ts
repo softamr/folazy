@@ -46,6 +46,12 @@ const nextConfig: NextConfig = {
         hostname: 'ik.imagekit.io',
         port: '',
         pathname: '/**',
+      },
+      { // Added for back.mansoura-eco-build.com
+        protocol: 'https',
+        hostname: 'back.mansoura-eco-build.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
