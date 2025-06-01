@@ -2,7 +2,7 @@
 // src/app/s/[...slug]/page.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback, use } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Removed 'use'
 import { useSearchParams } from 'next/navigation';
 import { ListingCard } from '@/components/ListingCard';
 import { FilterBar } from '@/components/FilterBar';
@@ -17,7 +17,7 @@ import { collection, getDocs, query as firestoreQuery, where, orderBy as firesto
 import { useToast } from '@/hooks/use-toast';
 
 async function fetchFilteredListingsClient(
-  slug: string[] | undefined,
+  slugParam: string[] | undefined, // Renamed to avoid conflict
   filters: { 
     query?: string; 
     minPrice?: string; 
@@ -40,12 +40,12 @@ async function fetchFilteredListingsClient(
   let slugCategory: CategoryType | undefined;
   let slugSubcategory: CategoryType | undefined;
 
-  if (slug && slug.length > 0 && slug[0] !== 'all-listings' && allFirestoreCategories.length > 0) {
-    slugCategory = allFirestoreCategories.find(c => c.id === slug[0]);
+  if (slugParam && slugParam.length > 0 && slugParam[0] !== 'all-listings' && allFirestoreCategories.length > 0) {
+    slugCategory = allFirestoreCategories.find(c => c.id === slugParam[0]);
     if (slugCategory) {
       breadcrumbCategories.push(slugCategory);
-      if (slug.length > 1 && slugCategory.subcategories) {
-        slugSubcategory = slugCategory.subcategories.find(sc => sc.id === slug[1]);
+      if (slugParam.length > 1 && slugCategory.subcategories) {
+        slugSubcategory = slugCategory.subcategories.find(sc => sc.id === slugParam[1]);
         if (slugSubcategory) {
           breadcrumbCategories.push(slugSubcategory);
         }
@@ -168,8 +168,9 @@ interface SearchPageProps {
 }
 
 export default function SearchPage({ params: paramsProp }: SearchPageProps) {
-  const resolvedParams = use(paramsProp);
-  const slug = resolvedParams.slug;
+  // For Client Components, params from page props are already resolved.
+  // No need for React.use() here.
+  const slugFromParams = paramsProp.slug; // Directly access slug from paramsProp
   const { language } = useLanguage();
   const t = translations[language];
   const { toast } = useToast();
@@ -218,14 +219,14 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
     
     const filters = { query, minPrice, maxPrice, categoryId, subcategoryId, locationCountryId, locationGovernorateId, locationDistrictId };
 
-    fetchFilteredListingsClient(slug, filters, allCategoriesData, t.unknownCategory, t.unknownSeller)
+    fetchFilteredListingsClient(slugFromParams, filters, allCategoriesData, t.unknownCategory, t.unknownSeller)
       .then(setData)
       .catch(err => {
         console.error("Failed to fetch listings:", err);
         toast({ title: t.errorTitle, description: t.failedToLoadListings, variant: "destructive" });
       })
       .finally(() => setIsLoadingListings(false));
-  }, [slug, clientSearchParams, isLoadingCategories, allCategoriesData, toast, t]);
+  }, [slugFromParams, clientSearchParams, isLoadingCategories, allCategoriesData, toast, t]);
 
   const { listings, category, subcategory, breadcrumbCategories } = data;
 
@@ -255,7 +256,7 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
     return cat.name;
   };
   
-  const isAllListingsPage = !slug || (slug && slug.length === 1 && slug[0] === 'all-listings');
+  const isAllListingsPage = !slugFromParams || (slugFromParams && slugFromParams.length === 1 && slugFromParams[0] === 'all-listings');
   
   let pageTitle = t.allListings;
   if (!isAllListingsPage && breadcrumbCategories.length > 0) {
@@ -298,7 +299,7 @@ export default function SearchPage({ params: paramsProp }: SearchPageProps) {
           <React.Fragment key={bcCategory.id}>
             <ChevronRight className="h-4 w-4 mx-1 rtl:hidden" />
             <ChevronRight className="h-4 w-4 mx-1 ltr:hidden transform rotate-180" />
-            {index === breadcrumbCategories.length - 1 && !clientSearchParams.get('subcategoryId') && slug && slug.length -1 === index ? ( 
+            {index === breadcrumbCategories.length - 1 && !clientSearchParams.get('subcategoryId') && slugFromParams && slugFromParams.length -1 === index ? ( 
                 <span>{getCategoryNameForDisplay(bcCategory)}</span>
             ): (
                  <Link href={bcCategory.href || `/s/${breadcrumbCategories.slice(0, index + 1).map(c=>c.id).join('/')}`} className="hover:text-primary">
@@ -359,4 +360,3 @@ function CardSkeleton() {
     </div>
   );
 }
-
