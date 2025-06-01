@@ -219,74 +219,77 @@ export default function UserManagementPage() {
               {users.length === 0 ? t.noUsersInSystem : t.noUsersMatchSearch}
              </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[80px]">{t.tableHeadAvatar}</TableHead>
-                  <TableHead>{t.tableHeadName}</TableHead>
-                  <TableHead>{t.tableHeadEmail}</TableHead>
-                  <TableHead>{t.tableHeadUserId}</TableHead>
-                  <TableHead>{t.tableHeadRole}</TableHead>
-                  <TableHead>{t.tableHeadJoinDate}</TableHead>
-                  <TableHead className={language === 'ar' ? 'text-left' : 'text-right'}>{t.tableHeadActions}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={user.avatarUrl || 'https://placehold.co/100x100.png'} alt={user.name || ''} data-ai-hint="avatar person" />
-                        <AvatarFallback>{user.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-                      </Avatar>
-                    </TableCell>
-                    <TableCell className="font-medium">{user.name || t.notApplicable}</TableCell>
-                    <TableCell className="text-muted-foreground">{user.email || t.notApplicable}</TableCell>
-                    <TableCell className="text-muted-foreground max-w-[100px] truncate" title={user.id}>{user.id}</TableCell>
-                    <TableCell>
-                      {user.isAdmin ? (
-                        <Badge variant="destructive"><Shield className="h-3 w-3 me-1" />{t.roleAdmin}</Badge>
-                      ) : (
-                        <Badge variant="secondary"><UserCheck className="h-3 w-3 me-1" />{t.roleUser}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{user.joinDate ? new Date(user.joinDate).toLocaleDateString() : t.notApplicable}</TableCell>
-                    <TableCell className={language === 'ar' ? 'text-left' : 'text-right'}>
-                      <DropdownMenu dir={language === 'ar' ? 'rtl' : 'ltr'}>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" disabled={isProcessing}>
-                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <MoreHorizontal className="h-4 w-4" />}
-                            <span className="sr-only">{t.userActionsSr}</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align={language === 'ar' ? 'start' : 'end'}>
-                          <DropdownMenuItem onClick={() => toast({ title: t.editUserAction, description: t.editUserActionDesc(user.id) })} disabled={isProcessing}>
-                            <Edit className="me-2 h-4 w-4" /> {t.editUserAction}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleToggleAdmin(user.id, user.isAdmin || false)} disabled={isProcessing}>
-                            {user.isAdmin ? (
-                              <><UserCheck className="me-2 h-4 w-4" /> {t.revokeAdminAction}</>
-                            ) : (
-                              <><Shield className="me-2 h-4 w-4" /> {t.makeAdminAction}</>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteUser(user.id, user.name || t.unknownUser)}
-                            className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/50"
-                            disabled={isProcessing}
-                          >
-                            <Trash2 className="me-2 h-4 w-4" /> {t.deleteUserAction}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+            <div className="relative w-full overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[80px]">{t.tableHeadAvatar}</TableHead>
+                    <TableHead>{t.tableHeadName}</TableHead>
+                    <TableHead>{t.tableHeadEmail}</TableHead>
+                    <TableHead>{t.tableHeadUserId}</TableHead>
+                    <TableHead>{t.tableHeadRole}</TableHead>
+                    <TableHead>{t.tableHeadJoinDate}</TableHead>
+                    <TableHead className={language === 'ar' ? 'text-left' : 'text-right'}>{t.tableHeadActions}</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage src={user.avatarUrl || 'https://placehold.co/100x100.png'} alt={user.name || ''} data-ai-hint="avatar person" />
+                          <AvatarFallback>{user.name?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                        </Avatar>
+                      </TableCell>
+                      <TableCell className="font-medium">{user.name || t.notApplicable}</TableCell>
+                      <TableCell className="text-muted-foreground">{user.email || t.notApplicable}</TableCell>
+                      <TableCell className="text-muted-foreground max-w-[100px] truncate" title={user.id}>{user.id}</TableCell>
+                      <TableCell>
+                        {user.isAdmin ? (
+                          <Badge variant="destructive"><Shield className="h-3 w-3 me-1" />{t.roleAdmin}</Badge>
+                        ) : (
+                          <Badge variant="secondary"><UserCheck className="h-3 w-3 me-1" />{t.roleUser}</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{user.joinDate ? new Date(user.joinDate).toLocaleDateString() : t.notApplicable}</TableCell>
+                      <TableCell className={language === 'ar' ? 'text-left' : 'text-right'}>
+                        <DropdownMenu dir={language === 'ar' ? 'rtl' : 'ltr'}>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" disabled={isProcessing}>
+                              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin"/> : <MoreHorizontal className="h-4 w-4" />}
+                              <span className="sr-only">{t.userActionsSr}</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align={language === 'ar' ? 'start' : 'end'}>
+                            <DropdownMenuItem onClick={() => toast({ title: t.editUserAction, description: t.editUserActionDesc(user.id) })} disabled={isProcessing}>
+                              <Edit className="me-2 h-4 w-4" /> {t.editUserAction}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleAdmin(user.id, user.isAdmin || false)} disabled={isProcessing}>
+                              {user.isAdmin ? (
+                                <><UserCheck className="me-2 h-4 w-4" /> {t.revokeAdminAction}</>
+                              ) : (
+                                <><Shield className="me-2 h-4 w-4" /> {t.makeAdminAction}</>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteUser(user.id, user.name || t.unknownUser)}
+                              className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/50"
+                              disabled={isProcessing}
+                            >
+                              <Trash2 className="me-2 h-4 w-4" /> {t.deleteUserAction}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
+
