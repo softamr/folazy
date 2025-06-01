@@ -40,6 +40,12 @@ const nextConfig: NextConfig = {
         hostname: 'www.canva.com',
         port: '',
         pathname: '/**',
+      },
+      { // Added for ImageKit content
+        protocol: 'https',
+        hostname: 'ik.imagekit.io',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
