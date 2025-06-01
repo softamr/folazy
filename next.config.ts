@@ -34,6 +34,12 @@ const nextConfig: NextConfig = {
         hostname: 'img.freepik.com',
         port: '',
         pathname: '/**',
+      },
+      { // Added for Canva content
+        protocol: 'https',
+        hostname: 'www.canva.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
