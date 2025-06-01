@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -274,6 +273,9 @@ export function FilterBar() {
              'mobiles': 'هواتف محمولة', 'tablets': 'أجهزة لوحية', 'cars': 'سيارات',
              'apartments for rent': 'شقق للإيجار','properties for rent': 'عقارات للإيجار', 
              'properties for sale': 'عقارات للبيع',
+             'business & industrial': 'أعمال وصناعة',
+             'businesses & industrial': 'أعمال وصناعة',
+             'agriculture equipment': 'معدات زراعية',
         };
         const categoryIdLower = category.id.toLowerCase();
         const categoryNameLower = category.name.toLowerCase();
