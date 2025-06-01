@@ -11,7 +11,7 @@ import Image from 'next/image';
 export function Logo() {
   return (
     <Image
-      src="https://ik.imagekit.io/rmlbayysp/1748766720305-F_UNwauBSrf.png"
+      src="https://ik.imagekit.io/rmlbayysp/1748770222852-F__1__M32pu7vyA.svg"
       alt="Fwlazy Logo"
       width={120} // Adjust as needed based on your logo's aspect ratio
       height={32}  // Adjust as needed
