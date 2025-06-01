@@ -3,7 +3,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Listing, ListingCategoryInfo } from '@/lib/types';
+import type { Listing, ListingCategoryInfo, LocationRef } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -109,12 +109,62 @@ export function ListingCard({ listing }: ListingCardProps) {
     return item.name;
   };
 
+  const arLocationNames: Record<string, string> = {
+    // Countries
+    'egypt': 'مصر',
+    // Governorates
+    'cairo': 'القاهرة',
+    'alexandria': 'الإسكندرية',
+    'giza': 'الجيزة',
+    // Districts - Add more as needed for common areas
+    'maadi': 'المعادي',
+    'zamalek': 'الزمالك',
+    'nasr city': 'مدينة نصر', // Common variations
+    'nasr-city': 'مدينة نصر',
+    'new cairo': 'القاهرة الجديدة',
+    'heliopolis': 'مصر الجديدة',
+    // Add more specific translations as needed
+  };
+
+  const getTranslatedLocationPart = (locationPartNameEng: string | undefined): string => {
+    if (!locationPartNameEng) return '';
+    if (language === 'ar') {
+        const nameLower = locationPartNameEng.toLowerCase();
+        return arLocationNames[nameLower] || locationPartNameEng; // Fallback to English if no translation
+    }
+    return locationPartNameEng;
+  };
+
   const translatedCategoryName = getTranslatedName(listing.category);
   const translatedSubcategoryName = listing.subcategory ? getTranslatedName(listing.subcategory) : '';
 
   const categoryPath = translatedSubcategoryName
     ? `${translatedCategoryName} / ${translatedSubcategoryName}`
     : translatedCategoryName;
+
+  let displayLocation = listing.location; // Fallback to the pre-formatted English string
+
+  const districtName = getTranslatedLocationPart(listing.locationDistrict?.name);
+  const governorateName = getTranslatedLocationPart(listing.locationGovernorate?.name);
+  const countryName = getTranslatedLocationPart(listing.locationCountry?.name);
+
+  if (language === 'ar') {
+      const partsAr = [districtName, governorateName, countryName].filter(Boolean);
+      if (partsAr.length > 0) {
+          displayLocation = partsAr.join('، '); // Use Arabic comma
+      }
+  } else {
+      // For English, try to build from structured data if available, otherwise use listing.location
+      const partsEn = [
+          listing.locationDistrict?.name,
+          listing.locationGovernorate?.name,
+          listing.locationCountry?.name
+      ].filter(Boolean);
+      if (partsEn.length > 0) {
+          displayLocation = partsEn.join(', ');
+      }
+  }
+
 
   return (
     <Card className="flex flex-col h-full overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-200 rounded-md">
@@ -147,7 +197,7 @@ export function ListingCard({ listing }: ListingCardProps) {
         <div className="text-xs text-muted-foreground space-y-0.5">
           <div className="flex items-center">
             <MapPin className={`h-3 w-3 ${language === 'ar' ? 'ms-1' : 'me-1'} shrink-0`} />
-            <span className="truncate">{listing.location}</span>
+            <span className="truncate">{displayLocation}</span>
           </div>
           <div className="flex items-center" title={categoryPath}>
             <Tag className={`h-3 w-3 ${language === 'ar' ? 'ms-1' : 'me-1'} shrink-0`} />
