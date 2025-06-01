@@ -94,24 +94,39 @@ export type PopularCategory = {
 };
 
 
-// For chat system placeholder
+// For chat system
 export type Message = {
-  id: string;
-  conversationId: string;
+  id: string; // Firestore document ID
+  conversationId: string; 
   senderId: string;
-  receiverId: string;
+  receiverId: string; 
   text: string;
-  timestamp: string;
+  timestamp: string; // ISO string, store as Firestore Timestamp
   isRead: boolean;
 };
 
 export type Conversation = {
-  id: string;
+  id: string; // Firestore document ID
   listingId?: string;
-  listingTitle?: string;
-  participants: [User, User]; // [UserA, UserB]
-  lastMessage: Message;
-  unreadCount: number;
+  listing?: { // Store basic listing info for quick display
+    id: string;
+    title: string;
+    imageUrl?: string; // First image of the listing
+  };
+  participantIds: string[]; // [userId1, userId2] - sorted for querying
+  participants: { // Store basic info for quick display
+    [userId: string]: {
+      id: string;
+      name: string;
+      avatarUrl?: string;
+    }
+  };
+  lastMessage: {
+    text: string;
+    senderId: string;
+    timestamp: string; // ISO string, store as Firestore Timestamp
+  };
+  // lastUpdatedAt: string; // ISO string, store as Firestore Timestamp. Can use lastMessage.timestamp
 };
 
 // For dynamic icon mapping
@@ -126,4 +141,3 @@ export type HeroBannerImage = {
   uploadedAt?: string; // ISO string timestamp
   // dataAiHint?: string; // Optional AI hint if admins provide it
 };
-
