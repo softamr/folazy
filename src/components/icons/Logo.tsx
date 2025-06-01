@@ -45,6 +45,7 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
         fontSize="16" // Adjusted for 26x26 box
         fontWeight="bold"
         fill="hsl(var(--primary-foreground))" // White text from theme
+        style={{ direction: 'ltr', unicodeBidi: 'embed' }}
       >
         F
       </text>
@@ -57,6 +58,7 @@ export function Logo(props: SVGProps<SVGSVGElement>) {
         fontSize={textFontSize}
         fontWeight="bold"
         fill="hsl(var(--foreground))"
+        style={{ direction: 'ltr', unicodeBidi: 'embed' }}
       >
         wlazy
       </text>
