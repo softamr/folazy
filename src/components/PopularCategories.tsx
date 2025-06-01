@@ -166,7 +166,7 @@ export function PopularCategories() {
             return (
               <div key={category.id} className="group">
                 <Card className="h-full flex flex-col hover:shadow-md transition-shadow bg-card">
-                  <CardHeader className={cn("pt-4 pb-2", language === 'ar' ? 'items-end' : 'items-start')}>
+                  <CardHeader className={cn("pt-4 pb-2 items-start")}>
                     <CardTitle className={cn("text-base font-medium text-foreground group-hover:text-primary", language === 'ar' ? 'text-right' : 'text-left')}>
                       <Link href={categoryHref} className="focus:outline-none focus:ring-2 focus:ring-ring rounded relative z-10">
                         {translatedCategoryName}
