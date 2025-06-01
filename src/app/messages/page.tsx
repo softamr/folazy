@@ -63,6 +63,7 @@ const translations = {
     failedToSendMessage: "Failed to send message.",
     failedToLoadMessages: "Failed to load messages for this conversation.",
     failedToLoadConversations: "Failed to load your conversations.",
+    defaultUserName: "User",
   },
   ar: {
     loadingMessages: "جار تحميل الرسائل...",
@@ -95,6 +96,7 @@ const translations = {
     failedToSendMessage: "فشل إرسال الرسالة.",
     failedToLoadMessages: "فشل تحميل رسائل هذه المحادثة.",
     failedToLoadConversations: "فشل تحميل محادثاتك.",
+    defaultUserName: "مستخدم",
   }
 };
 
@@ -136,25 +138,34 @@ export default function MessagesPage() {
   
   useEffect(() => {
     setIsLoadingAuth(true);
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (authUser) => {
+      if (authUser) {
+        let userProfileData: Partial<UserType> = {
+          name: authUser.displayName || authUser.email || t.defaultUserName,
+          email: authUser.email || "",
+          avatarUrl: authUser.photoURL || "",
+          joinDate: authUser.metadata.creationTime || new Date().toISOString(),
+          isAdmin: false, // Default to false, Firestore doc can override
+        };
+
         try {
-          const userDocRef = doc(db, "users", user.uid);
+          const userDocRef = doc(db, "users", authUser.uid);
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
-            setCurrentUser({ id: userDocSnap.id, ...userDocSnap.data() } as UserType);
-          } else { 
-            setCurrentUser({
-              id: user.uid, name: user.displayName || user.email || "User",
-              email: user.email || "", avatarUrl: user.photoURL || "",
-              joinDate: user.metadata.creationTime || new Date().toISOString(), isAdmin: false,
-            });
+            userProfileData = { ...userProfileData, ...userDocSnap.data() };
+          } else {
+            console.warn("User document not found in Firestore for messages, using auth defaults. UID:", authUser.uid);
           }
         } catch (error) {
           console.error("Error fetching user document for messages:", error);
           toast({ title: t.errorTitle, description: t.failedToLoadProfile, variant: "destructive" });
-          setCurrentUser(null);
         }
+        
+        setCurrentUser({
+          ...userProfileData,
+          id: authUser.uid, // Ensure 'id' is always the authUser's UID
+        } as UserType);
+
       } else {
         setCurrentUser(null);
       }
@@ -211,8 +222,9 @@ export default function MessagesPage() {
 
 
   useEffect(() => {
-    if (!selectedConversation?.id) {
+    if (!selectedConversation?.id || !currentUser?.id) {
       setMessages([]);
+      setIsLoadingMessages(false);
       return;
     }
     setIsLoadingMessages(true);
@@ -243,12 +255,11 @@ export default function MessagesPage() {
       setIsLoadingMessages(false);
     });
     return () => unsubscribeMessages();
-  }, [selectedConversation, toast, t]);
+  }, [selectedConversation, currentUser?.id, toast, t]);
 
 
   useEffect(() => {
-    if (isLoadingAuth || isLoadingConversations) return;
-    if (!currentUser) return;
+    if (isLoadingAuth || isLoadingConversations || !currentUser) return; 
 
     if (conversationIdParam) {
       const target = conversations.find(c => c.id === conversationIdParam);
@@ -293,8 +304,8 @@ export default function MessagesPage() {
               },
               participantIds: [currentUser.id, recipientData.id].sort(),
               participants: {
-                [currentUser.id]: { id: currentUser.id, name: currentUser.name, avatarUrl: currentUser.avatarUrl },
-                [recipientData.id]: { id: recipientData.id, name: recipientData.name, avatarUrl: recipientData.avatarUrl }
+                [currentUser.id]: { id: currentUser.id, name: currentUser.name || t.defaultUserName, avatarUrl: currentUser.avatarUrl },
+                [recipientData.id]: { id: recipientData.id, name: recipientData.name || t.defaultUserName, avatarUrl: recipientData.avatarUrl }
               },
               lastMessage: {
                 text: t.conversationCreated,
@@ -331,10 +342,13 @@ export default function MessagesPage() {
     if (!conversationIdParam && !listingIdParam && selectedConversation) {
       setSelectedConversation(null);
     }
+    // Explicit return to avoid falling through
+    return;
 
   }, [
     conversationIdParam, listingIdParam, recipientIdParam, 
-    currentUser, conversations, 
+    currentUser, 
+    conversations, 
     isLoadingAuth, isLoadingConversations,
     router, toast, t
   ]);
