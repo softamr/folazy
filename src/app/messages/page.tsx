@@ -140,19 +140,21 @@ export default function MessagesPage() {
     setIsLoadingAuth(true);
     const unsubscribeAuth = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
-        let userProfileData: Partial<UserType> = {
+        let userProfileData: Partial<UserType> = { // Use Partial for initial object
+          id: authUser.uid, // Ensure ID is always set from authUser
           name: authUser.displayName || authUser.email || t.defaultUserName,
           email: authUser.email || "",
           avatarUrl: authUser.photoURL || "",
           joinDate: authUser.metadata.creationTime || new Date().toISOString(),
-          isAdmin: false, // Default to false, Firestore doc can override
+          isAdmin: false,
         };
 
         try {
           const userDocRef = doc(db, "users", authUser.uid);
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
-            userProfileData = { ...userProfileData, ...userDocSnap.data() };
+            // Merge Firestore data, but keep authUser.uid as the definitive ID
+            userProfileData = { ...userProfileData, ...userDocSnap.data(), id: authUser.uid };
           } else {
             console.warn("User document not found in Firestore for messages, using auth defaults. UID:", authUser.uid);
           }
@@ -161,10 +163,7 @@ export default function MessagesPage() {
           toast({ title: t.errorTitle, description: t.failedToLoadProfile, variant: "destructive" });
         }
         
-        setCurrentUser({
-          ...userProfileData,
-          id: authUser.uid, // Ensure 'id' is always the authUser's UID
-        } as UserType);
+        setCurrentUser(userProfileData as UserType); // Cast to UserType after merging
 
       } else {
         setCurrentUser(null);
@@ -269,7 +268,7 @@ export default function MessagesPage() {
       return; 
     }
 
-    if (listingIdParam && recipientIdParam) {
+    if (listingIdParam && recipientIdParam && currentUser.id) { // Ensure currentUser.id is available
       const deterministicId = getDeterministicConversationId(currentUser.id, recipientIdParam, listingIdParam);
       const existingConvo = conversations.find(c => c.id === deterministicId);
 
@@ -300,7 +299,7 @@ export default function MessagesPage() {
               listing: { 
                 id: listingData.id, 
                 title: listingData.title,
-                imageUrl: listingData.images?.[0] 
+                imageUrl: listingData.images?.[0] || null // Ensure null if undefined
               },
               participantIds: [currentUser.id, recipientData.id].sort(),
               participants: {
@@ -342,7 +341,6 @@ export default function MessagesPage() {
     if (!conversationIdParam && !listingIdParam && selectedConversation) {
       setSelectedConversation(null);
     }
-    // Explicit return to avoid falling through
     return;
 
   }, [
