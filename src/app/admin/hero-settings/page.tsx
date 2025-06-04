@@ -2,74 +2,77 @@
 // src/app/admin/hero-settings/page.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, ChangeEvent } from 'react';
 import type { HeroBannerImage } from '@/lib/types';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase'; // Added storage
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'; // Firebase storage imports
 import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, setDoc, getDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Trash2, Loader2, Image as ImageIcon, Link as LinkIcon, X } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Image as ImageIcon, UploadCloud } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import Image from 'next/image';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress'; // Added Progress component
 
 const translations = {
   en: {
     pageTitle: "Hero Banner Settings",
-    pageDescription: "Manage the images displayed in the homepage hero banner.",
+    pageDescription: "Manage the images displayed in the homepage hero banner. Upload images directly.",
     currentImagesTitle: "Current Banner Images",
     noImagesYet: "No images have been added to the hero banner yet.",
-    addImageByUrlTitle: "Add New Image by URL",
-    imageUrlLabel: "Image URL",
-    imageUrlPlaceholder: "https://example.com/image.png or gs://bucket/path/to/image.png",
+    uploadNewImageTitle: "Upload New Image",
+    imageFileLabel: "Image File",
+    selectImageButton: "Select Image...",
     altTextLabel: "Alt Text (for accessibility)",
     altTextPlaceholder: "e.g., Woman shopping online",
-    addImageButton: "Add Image",
+    addImageButton: "Upload & Add Image",
+    uploadingButton: "Uploading...",
     deleteImageSr: "Delete Image",
     loadingImages: "Loading hero images...",
     successTitle: "Success",
     errorTitle: "Error",
-    imageAddedSuccess: "Image added to hero banner.",
-    couldNotAddImageError: "Could not add image. Ensure URL is valid.",
+    imageAddedSuccess: "Image uploaded and added to hero banner.",
+    couldNotAddImageError: "Could not upload or add image.",
     imageDeletedSuccess: "Image removed from hero banner.",
     couldNotDeleteImageError: "Could not delete image.",
-    urlRequiredError: "Image URL cannot be empty.",
+    fileRequiredError: "Please select an image file.",
     altRequiredError: "Alt text cannot be empty.",
     maxImagesReached: "Maximum of 5 hero banner images reached. Delete one to add another.",
-    uploadNoteTitle: "Note on Image Uploads:",
-    uploadNoteDescription: "Currently, images are added by URL. For direct file uploads, integrate Firebase Storage: upload the file, get its download URL, then add it here. This feature is planned for future enhancement.",
     errorLoadingHeroImages: "Could not load hero banner images.",
     imageNotFoundForDeletion: "Image not found for deletion.",
+    uploadProgress: (progress: number) => `Uploading: ${progress.toFixed(0)}%`,
+    errorDeletingStorageImage: "Could not delete image from storage, but removed from banner list.",
   },
   ar: {
     pageTitle: "إعدادات بانر الصفحة الرئيسية",
-    pageDescription: "إدارة الصور المعروضة في بانر الصفحة الرئيسية.",
+    pageDescription: "إدارة الصور المعروضة في بانر الصفحة الرئيسية. قم بتحميل الصور مباشرة.",
     currentImagesTitle: "صور البانر الحالية",
     noImagesYet: "لم تتم إضافة أي صور إلى بانر الصفحة الرئيسية بعد.",
-    addImageByUrlTitle: "إضافة صورة جديدة بواسطة الرابط",
-    imageUrlLabel: "رابط الصورة",
-    imageUrlPlaceholder: "https://example.com/image.png أو gs://bucket/path/to/image.png",
+    uploadNewImageTitle: "تحميل صورة جديدة",
+    imageFileLabel: "ملف الصورة",
+    selectImageButton: "اختر صورة...",
     altTextLabel: "النص البديل (لإمكانية الوصول)",
     altTextPlaceholder: "مثال: امرأة تتسوق عبر الإنترنت",
-    addImageButton: "إضافة صورة",
+    addImageButton: "تحميل وإضافة الصورة",
+    uploadingButton: "جار التحميل...",
     deleteImageSr: "حذف الصورة",
     loadingImages: "جار تحميل صور البانر...",
     successTitle: "نجاح",
     errorTitle: "خطأ",
-    imageAddedSuccess: "تمت إضافة الصورة إلى بانر الصفحة الرئيسية.",
-    couldNotAddImageError: "تعذر إضافة الصورة. تأكد من أن الرابط صالح.",
+    imageAddedSuccess: "تم تحميل الصورة وإضافتها إلى بانر الصفحة الرئيسية.",
+    couldNotAddImageError: "تعذر تحميل أو إضافة الصورة.",
     imageDeletedSuccess: "تمت إزالة الصورة من بانر الصفحة الرئيسية.",
     couldNotDeleteImageError: "تعذر حذف الصورة.",
-    urlRequiredError: "لا يمكن أن يكون رابط الصورة فارغًا.",
+    fileRequiredError: "الرجاء تحديد ملف صورة.",
     altRequiredError: "لا يمكن أن يكون النص البديل فارغًا.",
     maxImagesReached: "تم الوصول إلى الحد الأقصى لعدد 5 صور لبانر الصفحة الرئيسية. احذف واحدة لإضافة أخرى.",
-    uploadNoteTitle: "ملاحظة حول تحميل الصور:",
-    uploadNoteDescription: "حاليًا، تتم إضافة الصور عن طريق الرابط. لتحميل الملفات مباشرة، قم بدمج Firebase Storage: قم بتحميل الملف، واحصل على رابط التنزيل الخاص به، ثم أضفه هنا. من المخطط تحسين هذه الميزة في المستقبل.",
     errorLoadingHeroImages: "تعذر تحميل صور بانر الصفحة الرئيسية.",
     imageNotFoundForDeletion: "الصورة غير موجودة للحذف.",
+    uploadProgress: (progress: number) => `جار التحميل: ${progress.toFixed(0)}%`,
+    errorDeletingStorageImage: "تعذر حذف الصورة من التخزين، ولكن تمت إزالتها من قائمة البانر.",
   }
 };
 
@@ -85,8 +88,9 @@ export default function HeroSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [newImageUrl, setNewImageUrl] = useState('');
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [newImageAlt, setNewImageAlt] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   useEffect(() => {
     setIsLoading(true);
@@ -106,9 +110,17 @@ export default function HeroSettingsPage() {
     return () => unsubscribe();
   }, [toast, t]);
 
-  const handleAddImageUrl = async () => {
-    if (!newImageUrl.trim()) {
-      toast({ title: t.errorTitle, description: t.urlRequiredError, variant: "destructive" });
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setNewImageFile(event.target.files[0]);
+    } else {
+      setNewImageFile(null);
+    }
+  };
+
+  const handleImageUploadAndAdd = async () => {
+    if (!newImageFile) {
+      toast({ title: t.errorTitle, description: t.fileRequiredError, variant: "destructive" });
       return;
     }
     if (!newImageAlt.trim()) {
@@ -121,32 +133,55 @@ export default function HeroSettingsPage() {
     }
 
     setIsSubmitting(true);
-    const heroDocRef = doc(db, HERO_BANNER_DOC_PATH);
-    const newImage: HeroBannerImage = {
-      id: Date.now().toString(), // Simple unique ID
-      src: newImageUrl.trim(),
-      alt: newImageAlt.trim(),
-      uploadedAt: new Date().toISOString(),
-    };
+    setUploadProgress(0);
 
-    try {
-      const docSnap = await getDoc(heroDocRef);
-      if (!docSnap.exists()) {
-        await setDoc(heroDocRef, { images: [newImage] });
-      } else {
-        await updateDoc(heroDocRef, {
-          images: arrayUnion(newImage)
-        });
+    const fileRef = storageRef(storage, `hero-banners/${Date.now()}-${newImageFile.name}`);
+    const uploadTask = uploadBytesResumable(fileRef, newImageFile);
+
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setUploadProgress(progress);
+      },
+      (error) => {
+        console.error("Upload failed:", error);
+        toast({ title: t.errorTitle, description: t.couldNotAddImageError, variant: "destructive" });
+        setIsSubmitting(false);
+        setUploadProgress(0);
+      },
+      async () => {
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          const heroDocRef = doc(db, HERO_BANNER_DOC_PATH);
+          const newImage: HeroBannerImage = {
+            id: Date.now().toString(),
+            src: downloadURL,
+            alt: newImageAlt.trim(),
+            uploadedAt: new Date().toISOString(),
+          };
+
+          const docSnap = await getDoc(heroDocRef);
+          if (!docSnap.exists()) {
+            await setDoc(heroDocRef, { images: [newImage] });
+          } else {
+            await updateDoc(heroDocRef, {
+              images: arrayUnion(newImage)
+            });
+          }
+          toast({ title: t.successTitle, description: t.imageAddedSuccess });
+          setNewImageFile(null);
+          // @ts-ignore
+          document.getElementById('newImageFile').value = ''; // Reset file input
+          setNewImageAlt('');
+        } catch (error) {
+          console.error("Error adding image URL to Firestore: ", error);
+          toast({ title: t.errorTitle, description: t.couldNotAddImageError, variant: "destructive" });
+        } finally {
+          setIsSubmitting(false);
+          setUploadProgress(0);
+        }
       }
-      toast({ title: t.successTitle, description: t.imageAddedSuccess });
-      setNewImageUrl('');
-      setNewImageAlt('');
-    } catch (error) {
-      console.error("Error adding image URL: ", error);
-      toast({ title: t.errorTitle, description: t.couldNotAddImageError, variant: "destructive" });
-    } finally {
-      setIsSubmitting(false);
-    }
+    );
   };
 
   const handleDeleteImage = async (imageId: string) => {
@@ -160,12 +195,25 @@ export default function HeroSettingsPage() {
         return;
     }
     try {
+      // Attempt to delete from Firebase Storage
+      try {
+        const imageStorageRef = storageRef(storage, imageToDelete.src); // imageToDelete.src is the download URL
+        await deleteObject(imageStorageRef);
+      } catch (storageError: any) {
+        // Log storage deletion error but continue to remove from Firestore list
+        console.warn("Could not delete image from Firebase Storage:", storageError);
+        // Optionally, inform user if storage deletion failed but list item was removed
+        if (storageError.code !== 'storage/object-not-found') { // Don't show toast if file already not found in storage
+            toast({ title: t.errorTitle, description: t.errorDeletingStorageImage, variant: "warning", duration: 7000 });
+        }
+      }
+
       await updateDoc(heroDocRef, {
         images: arrayRemove(imageToDelete)
       });
       toast({ title: t.successTitle, description: t.imageDeletedSuccess });
     } catch (error) {
-      console.error("Error deleting image: ", error);
+      console.error("Error deleting image from Firestore: ", error);
       toast({ title: t.errorTitle, description: t.couldNotDeleteImageError, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
@@ -192,24 +240,18 @@ export default function HeroSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t.addImageByUrlTitle}</CardTitle>
+          <CardTitle>{t.uploadNewImageTitle}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-            <Alert variant="default" className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">
-                <LinkIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <AlertTitle className="text-blue-700 dark:text-blue-300">{t.uploadNoteTitle}</AlertTitle>
-                <AlertDescription className="text-blue-600 dark:text-blue-400 text-xs">
-                    {t.uploadNoteDescription}
-                </AlertDescription>
-            </Alert>
           <div>
-            <Label htmlFor="newImageUrl">{t.imageUrlLabel}</Label>
+            <Label htmlFor="newImageFile">{t.imageFileLabel}</Label>
             <Input
-              id="newImageUrl"
-              value={newImageUrl}
-              onChange={(e) => setNewImageUrl(e.target.value)}
-              placeholder={t.imageUrlPlaceholder}
+              id="newImageFile"
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
               disabled={isSubmitting || bannerImages.length >= MAX_IMAGES}
+              className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
             />
           </div>
            <div>
@@ -222,9 +264,15 @@ export default function HeroSettingsPage() {
               disabled={isSubmitting || bannerImages.length >= MAX_IMAGES}
             />
           </div>
-          <Button onClick={handleAddImageUrl} disabled={isSubmitting || !newImageUrl.trim() || !newImageAlt.trim() || bannerImages.length >= MAX_IMAGES} className="w-full sm:w-auto">
-            {isSubmitting ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <PlusCircle className="me-2 h-4 w-4" />}
-            {t.addImageButton}
+          {isSubmitting && uploadProgress > 0 && (
+            <div className="space-y-1">
+              <Progress value={uploadProgress} className="w-full h-2" />
+              <p className="text-sm text-muted-foreground">{t.uploadProgress(uploadProgress)}</p>
+            </div>
+          )}
+          <Button onClick={handleImageUploadAndAdd} disabled={isSubmitting || !newImageFile || !newImageAlt.trim() || bannerImages.length >= MAX_IMAGES} className="w-full sm:w-auto">
+            {isSubmitting ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <UploadCloud className="me-2 h-4 w-4" />}
+            {isSubmitting ? t.uploadingButton : t.addImageButton}
           </Button>
           {bannerImages.length >= MAX_IMAGES && (
             <p className="text-sm text-destructive">{t.maxImagesReached}</p>
@@ -273,3 +321,4 @@ export default function HeroSettingsPage() {
     </div>
   );
 }
+
