@@ -96,11 +96,16 @@ export default function HeroSettingsPage() {
     setIsLoading(true);
     const heroDocRef = doc(db, HERO_BANNER_DOC_PATH);
     const unsubscribe = onSnapshot(heroDocRef, (docSnapshot) => {
+      let validImages: HeroBannerImage[] = [];
       if (docSnapshot.exists()) {
-        setBannerImages(docSnapshot.data()?.images || []);
-      } else {
-        setBannerImages([]);
+        const data = docSnapshot.data();
+        const fetchedImages = data?.images as HeroBannerImage[] | undefined;
+        if (fetchedImages && fetchedImages.length > 0) {
+          // Filter out images with empty or whitespace-only src
+          validImages = fetchedImages.filter(img => img.src && img.src.trim() !== '');
+        }
       }
+      setBannerImages(validImages);
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching hero images: ", error);
