@@ -142,15 +142,18 @@ export default function HeroSettingsPage() {
     setUploadProgress(0);
 
     const fileRef = storageRef(storage, `hero-banners/${Date.now()}-${newImageFile.name}`);
+    console.log(`Attempting to upload hero image to Firebase Storage path: ${fileRef.fullPath}`);
     const uploadTask = uploadBytesResumable(fileRef, newImageFile);
 
     uploadTask.on('state_changed',
       (snapshot) => {
         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
         setUploadProgress(progress);
+        console.log('Upload is ' + progress + '% done');
       },
       (error) => {
-        console.error("Upload failed:", error);
+        console.error("Upload failed for hero image:", error);
+        console.error("Firebase Storage Error Object (Hero Image):", error); // Log the full error object
         let detailedErrorMessage = t.couldNotAddImageError;
         if ((error as any).code && (error as any).code.startsWith('storage/')) {
           detailedErrorMessage = `${t.uploadFailedError} (Code: ${(error as any).code})`;
@@ -162,6 +165,7 @@ export default function HeroSettingsPage() {
       async () => {
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          console.log(`Successfully uploaded hero image, URL: ${downloadURL}`);
           const heroDocRef = doc(db, HERO_BANNER_DOC_PATH);
           const newImage: HeroBannerImage = {
             id: Date.now().toString(),
@@ -184,7 +188,7 @@ export default function HeroSettingsPage() {
           document.getElementById('newImageFile').value = ''; 
           setNewImageAlt('');
         } catch (error) {
-          console.error("Error adding image URL to Firestore: ", error);
+          console.error("Error adding hero image URL to Firestore: ", error);
           toast({ title: t.errorTitle, description: t.couldNotAddImageError, variant: "destructive" });
         } finally {
           setIsSubmitting(false);
@@ -329,3 +333,4 @@ export default function HeroSettingsPage() {
   );
 }
 
+    

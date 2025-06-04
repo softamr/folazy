@@ -22,7 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Upload, MapPinIcon, TagIcon, ListTree, Loader2, Globe2, Building, Map } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { auth, db, storage } from '@/lib/firebase'; // Added storage
-import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage"; // Firebase storage imports
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage"; // Firebase storage imports
 import { addDoc, collection, doc, getDoc, getDocs, query as firestoreQuery, orderBy, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -352,6 +352,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
       setIsSubmitting(false);
       return;
     }
+    console.log("Current user UID for listing:", currentUserAuth.uid);
 
     try {
       const userDocRef = doc(db, "users", currentUserAuth.uid);
@@ -390,14 +391,19 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
       let finalImageUrls: string[] = isEditMode && listingToEdit?.images ? [...listingToEdit.images] : [];
       if (imageFilesToUpload.length > 0) {
         const uploadedUrls: string[] = [];
+        console.log(`Starting upload for ${imageFilesToUpload.length} images.`);
         for (const file of imageFilesToUpload) {
             const imageFileName = `${Date.now()}-${file.name}`;
             const imageRef = storageRef(storage, `listings/${currentUserAuth.uid}/${imageFileName}`);
+            console.log(`Attempting to upload to Firebase Storage path: ${imageRef.fullPath}`);
+            
             const uploadTask = await uploadBytesResumable(imageRef, file);
+            console.log(`Upload task created for ${file.name}. State: ${uploadTask.state}`);
+            
             const downloadURL = await getDownloadURL(uploadTask.ref);
+            console.log(`Successfully uploaded ${file.name}, URL: ${downloadURL}`);
             uploadedUrls.push(downloadURL);
         }
-        // If editing, new uploads replace old images. If creating, they are the initial images.
         finalImageUrls = uploadedUrls; 
       }
 
@@ -440,13 +446,13 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
     } catch (error) {
       console.error("Detailed error during listing submission/image upload:", error); 
       let errorMessage = (error as Error).message || t.submissionFailedDescDefault;
-      if ((error as any).code) {
-        console.error("Firebase error code:", (error as any).code);
-        if ((error as any).code.startsWith("storage/")) {
-            errorMessage = `${t.uploadFailedError} (Code: ${(error as any).code})`;
-        }
-      } else if ((error as Error).message && (error as Error).message.toLowerCase().includes("storage")) {
-        errorMessage = t.uploadFailedError;
+      // More detailed error check for Firebase Storage
+      if ((error as any).code && typeof (error as any).code === 'string' && (error as any).code.startsWith('storage/')) {
+          errorMessage = `${t.uploadFailedError} (Code: ${(error as any).code})`;
+          console.error("Firebase Storage Error Object:", error); // Log the full error object
+      } else if (error instanceof Error && error.message && error.message.toLowerCase().includes("storage")) {
+          errorMessage = t.uploadFailedError;
+          console.error("Generic Storage Error Object:", error);
       }
       toast({
         title: t.submissionFailedTitle,
@@ -669,3 +675,4 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
   );
 }
 
+    
