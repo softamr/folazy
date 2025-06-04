@@ -142,6 +142,7 @@ export default function ListingManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ListingStatus | 'all'>('all');
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
 
   useEffect(() => {
     setIsLoading(true);
@@ -177,6 +178,7 @@ export default function ListingManagementPage() {
   }, [toast, t]);
 
   const handleUpdateStatus = async (listingId: string, newStatus: ListingStatus) => {
+    setIsProcessingAction(true);
     const listingRef = doc(db, 'listings', listingId);
     try {
       await updateDoc(listingRef, { status: newStatus });
@@ -184,10 +186,13 @@ export default function ListingManagementPage() {
     } catch (error) {
       console.error("Error updating status: ", error);
       toast({ title: t.errorTitle, description: t.couldNotUpdateStatusError, variant: "destructive" });
+    } finally {
+      setIsProcessingAction(false);
     }
   };
 
   const handleToggleFeatured = async (listingId: string, newIsFeatured: boolean) => {
+    setIsProcessingAction(true);
     const listingRef = doc(db, 'listings', listingId);
     try {
       await updateDoc(listingRef, { isFeatured: newIsFeatured });
@@ -198,11 +203,14 @@ export default function ListingManagementPage() {
     } catch (error) {
       console.error("Error updating featured status: ", error);
       toast({ title: t.errorTitle, description: t.couldNotUpdateFeaturedError, variant: "destructive" });
+    } finally {
+      setIsProcessingAction(false);
     }
   };
 
   const handleDeleteListing = async (listingId: string) => {
     if (window.confirm(t.deleteConfirm(listingId))) {
+      setIsProcessingAction(true);
       const listingRef = doc(db, 'listings', listingId);
       try {
         await deleteDoc(listingRef);
@@ -210,6 +218,8 @@ export default function ListingManagementPage() {
       } catch (error) {
         console.error("Error deleting listing: ", error);
         toast({ title: t.errorTitle, description: t.couldNotDeleteListingError, variant: "destructive" });
+      } finally {
+        setIsProcessingAction(false);
       }
     }
   };
@@ -354,8 +364,8 @@ export default function ListingManagementPage() {
                     <TableCell className={language === 'ar' ? 'text-left' : 'text-right'}>
                       <DropdownMenu dir={language === 'ar' ? 'rtl' : 'ltr'}>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" disabled={isProcessingAction}>
+                            {isProcessingAction ? <Loader2 className="h-4 w-4 animate-spin"/> : <MoreHorizontal className="h-4 w-4" />}
                              <span className="sr-only">{t.listingActionsSr}</span>
                           </Button>
                         </DropdownMenuTrigger>
@@ -422,3 +432,4 @@ export default function ListingManagementPage() {
     </div>
   );
 }
+
