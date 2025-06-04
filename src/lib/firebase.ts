@@ -12,7 +12,7 @@ const firebaseConfig: FirebaseOptions = {
   apiKey: "AIzaSyCFU5mi3wDBCKFqIN2zwxxAXHwtMidv7VA",
   authDomain: "marketsquare-9nk44.firebaseapp.com",
   projectId: "marketsquare-9nk44",
-  storageBucket: "marketsquare-9nk44.appspot.com", // Corrected: .appspot.com is typical for storageBucket
+  storageBucket: "marketsquare-9nk44.firebasestorage.app", // Corrected: .appspot.com is typical for storageBucket
   messagingSenderId: "860812012286",
   appId: "1:860812012286:web:a41b6ec8ceecdffddbd3af"
   // measurementId can be added here if you have one and need it
