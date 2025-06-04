@@ -19,19 +19,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Category, ListingStatus, User, Listing as ListingType, ListingCategoryInfo, LocationCountry, LocationGovernorate, LocationDistrict, LocationRef } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-// import { ImageAnalysisTool } from './ImageAnalysisTool'; // Removed static import
 import { Upload, MapPinIcon, TagIcon, ListTree, Loader2, Globe2, Building, Map } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, storage } from '@/lib/firebase'; // Added storage
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage"; // Firebase storage imports
 import { addDoc, collection, doc, getDoc, getDocs, query as firestoreQuery, orderBy, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import Image from 'next/image'; // For image previews
 
 const ImageAnalysisTool = dynamic(() => import('./ImageAnalysisTool').then(mod => mod.ImageAnalysisTool), {
-  ssr: false, // The tool likely uses client-side APIs
-  loading: () => <p>Loading analysis tool...</p> // Simple loading state
+  ssr: false,
+  loading: () => <p>Loading analysis tool...</p>
 });
 
 
@@ -72,7 +73,7 @@ const translations = {
     noDistrictOption: "No specific district / General area",
     loadingLocations: "Loading locations...",
     uploadImagesLabel: "Upload Images",
-    uploadImagesDesc: "You can upload multiple images. In edit mode, new uploads will replace existing images (feature not fully implemented for updates yet).",
+    uploadImagesDesc: "Upload up to 5 images for your listing. The first image will be the main one.",
     submitButton: "Submit for Review",
     submittingButton: "Submitting...",
     updateButton: "Update Listing",
@@ -96,6 +97,8 @@ const translations = {
     categoryDetailsTitle: "Category Details",
     locationDetailsTitle: "Location Details",
     imagePreviewAlt: (index: number) => `Preview ${index + 1}`,
+    uploadFailedError: "Image upload failed. Please try again.",
+    maxImagesError: "You can upload a maximum of 5 images.",
   },
   ar: {
     titleMin: "يجب أن يتكون العنوان من 5 أحرف على الأقل",
@@ -133,7 +136,7 @@ const translations = {
     noDistrictOption: "لا يوجد منطقة محددة / منطقة عامة",
     loadingLocations: "جار تحميل المواقع...",
     uploadImagesLabel: "تحميل الصور",
-    uploadImagesDesc: "يمكنك تحميل صور متعددة. في وضع التعديل، ستحل الصور الجديدة محل الحالية (لم يتم تنفيذ الميزة بالكامل للتحديثات بعد).",
+    uploadImagesDesc: "يمكنك تحميل حتى 5 صور لإعلانك. الصورة الأولى ستكون الرئيسية.",
     submitButton: "إرسال للمراجعة",
     submittingButton: "جار الإرسال...",
     updateButton: "تحديث الإعلان",
@@ -157,6 +160,8 @@ const translations = {
     categoryDetailsTitle: "تفاصيل الفئة",
     locationDetailsTitle: "تفاصيل الموقع",
     imagePreviewAlt: (index: number) => `معاينة ${index + 1}`,
+    uploadFailedError: "فشل تحميل الصورة. يرجى المحاولة مرة أخرى.",
+    maxImagesError: "يمكنك تحميل 5 صور بحد أقصى.",
   }
 };
 
@@ -166,12 +171,12 @@ const createListingFormSchema = (t: typeof translations['en'] | typeof translati
   price: z.coerce.number().positive(t.pricePositive),
   categoryId: z.string().min(1, t.categoryRequired),
   subcategoryId: z.string().optional(),
-  
   countryId: z.string().min(1, t.countryRequired),
   governorateId: z.string().min(1, t.governorateRequired),
   districtId: z.string().optional(),
-  
-  images: z.any().optional(),
+  // The 'images' field will now hold FileList or be undefined, not directly validated here for content type / count.
+  // Validation for file count will be handled in the component.
+  images: z.custom<FileList>((val) => val instanceof FileList, "Expected a FileList").optional(),
   status: z.custom<ListingStatus>().default('pending'),
 });
 
@@ -179,6 +184,7 @@ type ListingFormValues = z.infer<ReturnType<typeof createListingFormSchema>>;
 
 const NO_SUBCATEGORY_VALUE = "_none_";
 const NO_DISTRICT_VALUE = "_none_";
+const MAX_IMAGES = 5;
 
 interface ListingFormProps {
   listingToEdit?: ListingType | null;
@@ -204,6 +210,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
     governorateId: listingToEdit?.locationGovernorate?.id || '',
     districtId: listingToEdit?.locationDistrict?.id || NO_DISTRICT_VALUE,
     status: listingToEdit?.status || 'pending',
+    images: undefined,
   };
   
   const form = useForm<ListingFormValues>({
@@ -213,6 +220,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
   });
 
   const [imagePreviews, setImagePreviews] = useState<string[]>(listingToEdit?.images || []);
+  const [imageFilesToUpload, setImageFilesToUpload] = useState<File[]>([]);
   
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [selectedMainCategory, setSelectedMainCategory] = useState<Category | null>(null);
@@ -250,6 +258,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
         setAllCountries(fetchedCountries);
 
         if (listingToEdit) {
+          setImagePreviews(listingToEdit.images || []); // Initialize previews for edit mode
           if (listingToEdit.category.id && fetchedCategories.length > 0) {
             const mainCat = fetchedCategories.find(c => c.id === listingToEdit.category.id);
             setSelectedMainCategory(mainCat || null);
@@ -380,9 +389,19 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
       }
       const locationDisplay = [districtInfo?.name, governorateData.name, countryData.name].filter(Boolean).join(', ');
       
-      const imageUrls: string[] = imagePreviews.length > 0 ? imagePreviews : [];
+      let finalImageUrls: string[] = isEditMode ? (listingToEdit?.images || []) : [];
+      if (imageFilesToUpload.length > 0) {
+        const uploadPromises = imageFilesToUpload.map(async (file) => {
+          const imageFileName = `${Date.now()}-${file.name}`;
+          const imageRef = storageRef(storage, `listings/${currentUserAuth.uid}/${imageFileName}`);
+          const uploadTask = await uploadBytesResumable(imageRef, file);
+          return getDownloadURL(uploadTask.ref);
+        });
+        finalImageUrls = await Promise.all(uploadPromises);
+      }
 
-      const listingPayload = {
+
+      const listingPayload: Partial<ListingType> = {
         title: data.title, description: data.description, price: data.price,
         category: { id: mainCategoryData.id, name: mainCategoryData.name },
         subcategory: subCategoryInfo,
@@ -390,29 +409,32 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
         locationCountry: { id: countryData.id, name: countryData.name },
         locationGovernorate: { id: governorateData.id, name: governorateData.name },
         locationDistrict: districtInfo,
+        images: finalImageUrls, // Use the processed URLs
+        // seller and postedDate are only for new listings
+        // status and isFeatured are usually handled by admin or have defaults
       };
 
       if (isEditMode && listingToEdit) {
         const listingRef = doc(db, 'listings', listingToEdit.id);
-        let updateData: Partial<ListingType> = { ...listingPayload };
-        if (form.getValues('images')) { 
-            updateData.images = imagePreviews; 
-        }
-        await updateDoc(listingRef, updateData);
+        // When editing, we only update fields that are part of the form.
+        // Seller, postedDate, status (unless admin can change it), isFeatured should not be overwritten here by default.
+        const { seller: _, postedDate: __, status: ___, isFeatured: ____, ...editablePayload } = listingPayload;
+        await updateDoc(listingRef, editablePayload);
         toast({ title: t.listingUpdatedTitle, description: t.listingUpdatedDesc });
         router.push(`/listings/${listingToEdit.id}`); 
       } else {
         const newListingData: Omit<ListingType, 'id'> = {
-          ...listingPayload,
-          images: imageUrls, 
+          ...listingPayload, // This includes title, desc, price, category, subcat, location details, images
           seller: seller,
           postedDate: new Date().toISOString(),
-          status: 'pending',
-          isFeatured: false,
-        };
+          status: 'pending', // Default status for new listings
+          isFeatured: false, // Default for new listings
+        } as Omit<ListingType, 'id'>; // Assert type as some fields in listingPayload are Partial
+        
         await addDoc(collection(db, 'listings'), newListingData);
         toast({ title: t.listingSubmittedTitle, description: t.listingSubmittedDesc });
         form.reset(defaultFormValues); 
+        setImageFilesToUpload([]);
         setImagePreviews([]);
         setSelectedMainCategory(null); setAvailableSubcategories([]);
         setSelectedCountry(null); setAvailableGovernorates([]);
@@ -420,9 +442,13 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
       }
     } catch (error) {
       console.error("Error submitting listing:", error);
+      let errorMessage = (error as Error).message || t.submissionFailedDescDefault;
+      if ((error as Error).message.includes("Storage")) {
+        errorMessage = t.uploadFailedError;
+      }
       toast({
         title: t.submissionFailedTitle,
-        description: (error as Error).message || t.submissionFailedDescDefault,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -433,11 +459,22 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
-      imagePreviews.forEach(previewUrl => { if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); });
+      if (filesArray.length > MAX_IMAGES) {
+        toast({ title: t.errorTitle, description: t.maxImagesError, variant: "destructive" });
+        // @ts-ignore
+        event.target.value = null; // Clear the file input
+        return;
+      }
+
+      // Revoke old blob URLs
+      imagePreviews.forEach(previewUrl => { 
+        if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); 
+      });
       
       const newPreviews = filesArray.map(file => URL.createObjectURL(file));
       setImagePreviews(newPreviews);
-      form.setValue('images', event.target.files); 
+      setImageFilesToUpload(filesArray); 
+      form.setValue('images', event.target.files); // Still set form value for schema validation if needed
     }
   };
 
@@ -584,10 +621,22 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
               
               <FormField
                 control={form.control} name="images" 
-                render={({ field }) => ( 
+                render={({ field: { onChange, onBlur, name, ref } }) => ( // Destructure field to manually handle onChange for FileList
                   <FormItem>
                     <FormLabel className="flex items-center"><Upload className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`}/>{t.uploadImagesLabel}</FormLabel>
-                    <FormControl><Input type="file" multiple accept="image/*" onChange={handleImageChange} disabled={isSubmitting} className="file:text-sm file:font-medium"/></FormControl>
+                    <FormControl>
+                        <Input 
+                            type="file" 
+                            multiple 
+                            accept="image/*" 
+                            onBlur={onBlur}
+                            name={name}
+                            ref={ref}
+                            onChange={handleImageChange} // Use custom handler
+                            disabled={isSubmitting} 
+                            className="file:text-sm file:font-medium"
+                        />
+                    </FormControl>
                     <FormDescription>{t.uploadImagesDesc}</FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -596,7 +645,9 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
               {imagePreviews.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2">
                   {imagePreviews.map((src, index) => (
-                    <img key={index} src={src} alt={t.imagePreviewAlt(index + 1)} className="h-24 w-full object-cover rounded-md border"/>
+                    <div key={src} className="relative aspect-square">
+                         <Image src={src} alt={t.imagePreviewAlt(index + 1)} layout="fill" objectFit="cover" className="rounded-md border"/>
+                    </div>
                   ))}
                 </div>
               )}
@@ -616,3 +667,4 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
     </div>
   );
 }
+
