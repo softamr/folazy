@@ -55,9 +55,8 @@ export function HeroBanner() {
       let validImages: HeroBannerImage[] = [];
       if (docSnapshot.exists()) {
         const data = docSnapshot.data();
-        const fetchedImages = data?.images as HeroBannerImage[] | undefined; // Ensure it can be undefined
+        const fetchedImages = data?.images as HeroBannerImage[] | undefined; 
         if (fetchedImages && fetchedImages.length > 0) {
-          // Filter out images with empty or whitespace-only src
           validImages = fetchedImages.filter(img => img.src && img.src.trim() !== '');
         }
       }
@@ -65,10 +64,9 @@ export function HeroBanner() {
       if (validImages.length > 0) {
         setImagesToDisplay(validImages);
       } else {
-        // If no valid images from Firestore, or Firestore doc doesn't exist/has no images, use defaults
         setImagesToDisplay(defaultSlideImages.map(img => ({...img, alt: t.promoBannerAltFallback})));
       }
-      setCurrentImageIndex(0); // Reset index when images change
+      setCurrentImageIndex(0); 
       setIsLoadingBanner(false);
     }, (error) => {
       console.error("Error fetching hero banner images:", error);
@@ -98,14 +96,14 @@ export function HeroBanner() {
       ) : imagesToDisplay.length > 0 ? (
         imagesToDisplay.map((image, index) => (
           <div
-            key={image.id || image.src} // Use unique key
+            key={image.id || image.src} 
             className={cn(
               "absolute inset-0 transition-opacity duration-1000 ease-in-out z-0",
               index === currentImageIndex ? "opacity-100" : "opacity-0"
             )}
           >
             <Image
-              src={image.src} // This should now always be a valid string
+              src={image.src} 
               alt={image.alt || t.promoBannerAltFallback}
               layout="fill"
               objectFit="cover"
@@ -122,8 +120,9 @@ export function HeroBanner() {
       )}
 
       <div className={cn(
-          "relative z-10 container mx-auto flex flex-col",
-          language === 'ar' ? "items-start text-right" : "items-end text-right"
+          "relative z-10 w-full max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl", // Constrain width of the content block
+          "flex flex-col", // Stack content vertically
+          language === 'ar' ? "items-start text-start" : "items-end text-end" // Text alignment within this block
         )}
       >
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-6 leading-tight shadow-text-md">
