@@ -45,6 +45,7 @@ const translations = {
     imageNotFoundForDeletion: "Image not found for deletion.",
     uploadProgress: (progress: number) => `Uploading: ${progress.toFixed(0)}%`,
     errorDeletingStorageImage: "Could not delete image from storage, but removed from banner list.",
+    uploadFailedError: "Image upload failed. Please try again.",
   },
   ar: {
     pageTitle: "إعدادات بانر الصفحة الرئيسية",
@@ -73,6 +74,7 @@ const translations = {
     imageNotFoundForDeletion: "الصورة غير موجودة للحذف.",
     uploadProgress: (progress: number) => `جار التحميل: ${progress.toFixed(0)}%`,
     errorDeletingStorageImage: "تعذر حذف الصورة من التخزين، ولكن تمت إزالتها من قائمة البانر.",
+    uploadFailedError: "فشل تحميل الصورة. يرجى المحاولة مرة أخرى.",
   }
 };
 
@@ -101,7 +103,6 @@ export default function HeroSettingsPage() {
         const data = docSnapshot.data();
         const fetchedImages = data?.images as HeroBannerImage[] | undefined;
         if (fetchedImages && fetchedImages.length > 0) {
-          // Filter out images with empty or whitespace-only src
           validImages = fetchedImages.filter(img => img.src && img.src.trim() !== '');
         }
       }
@@ -150,7 +151,11 @@ export default function HeroSettingsPage() {
       },
       (error) => {
         console.error("Upload failed:", error);
-        toast({ title: t.errorTitle, description: t.couldNotAddImageError, variant: "destructive" });
+        let detailedErrorMessage = t.couldNotAddImageError;
+        if ((error as any).code && (error as any).code.startsWith('storage/')) {
+          detailedErrorMessage = `${t.uploadFailedError} (Code: ${(error as any).code})`;
+        }
+        toast({ title: t.errorTitle, description: detailedErrorMessage, variant: "destructive" });
         setIsSubmitting(false);
         setUploadProgress(0);
       },
@@ -176,7 +181,7 @@ export default function HeroSettingsPage() {
           toast({ title: t.successTitle, description: t.imageAddedSuccess });
           setNewImageFile(null);
           // @ts-ignore
-          document.getElementById('newImageFile').value = ''; // Reset file input
+          document.getElementById('newImageFile').value = ''; 
           setNewImageAlt('');
         } catch (error) {
           console.error("Error adding image URL to Firestore: ", error);
@@ -200,15 +205,12 @@ export default function HeroSettingsPage() {
         return;
     }
     try {
-      // Attempt to delete from Firebase Storage
       try {
-        const imageStorageRef = storageRef(storage, imageToDelete.src); // imageToDelete.src is the download URL
+        const imageStorageRef = storageRef(storage, imageToDelete.src); 
         await deleteObject(imageStorageRef);
       } catch (storageError: any) {
-        // Log storage deletion error but continue to remove from Firestore list
         console.warn("Could not delete image from Firebase Storage:", storageError);
-        // Optionally, inform user if storage deletion failed but list item was removed
-        if (storageError.code !== 'storage/object-not-found') { // Don't show toast if file already not found in storage
+        if (storageError.code !== 'storage/object-not-found') { 
             toast({ title: t.errorTitle, description: t.errorDeletingStorageImage, variant: "warning", duration: 7000 });
         }
       }

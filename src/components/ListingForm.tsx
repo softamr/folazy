@@ -174,8 +174,6 @@ const createListingFormSchema = (t: typeof translations['en'] | typeof translati
   countryId: z.string().min(1, t.countryRequired),
   governorateId: z.string().min(1, t.governorateRequired),
   districtId: z.string().optional(),
-  // The 'images' field will now hold FileList or be undefined, not directly validated here for content type / count.
-  // Validation for file count will be handled in the component.
   images: z.custom<FileList>((val) => val instanceof FileList, "Expected a FileList").optional(),
   status: z.custom<ListingStatus>().default('pending'),
 });
@@ -258,7 +256,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
         setAllCountries(fetchedCountries);
 
         if (listingToEdit) {
-          setImagePreviews(listingToEdit.images || []); // Initialize previews for edit mode
+          setImagePreviews(listingToEdit.images || []);
           if (listingToEdit.category.id && fetchedCategories.length > 0) {
             const mainCat = fetchedCategories.find(c => c.id === listingToEdit.category.id);
             setSelectedMainCategory(mainCat || null);
@@ -389,15 +387,18 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
       }
       const locationDisplay = [districtInfo?.name, governorateData.name, countryData.name].filter(Boolean).join(', ');
       
-      let finalImageUrls: string[] = isEditMode ? (listingToEdit?.images || []) : [];
+      let finalImageUrls: string[] = isEditMode && listingToEdit?.images ? [...listingToEdit.images] : [];
       if (imageFilesToUpload.length > 0) {
-        const uploadPromises = imageFilesToUpload.map(async (file) => {
-          const imageFileName = `${Date.now()}-${file.name}`;
-          const imageRef = storageRef(storage, `listings/${currentUserAuth.uid}/${imageFileName}`);
-          const uploadTask = await uploadBytesResumable(imageRef, file);
-          return getDownloadURL(uploadTask.ref);
-        });
-        finalImageUrls = await Promise.all(uploadPromises);
+        const uploadedUrls: string[] = [];
+        for (const file of imageFilesToUpload) {
+            const imageFileName = `${Date.now()}-${file.name}`;
+            const imageRef = storageRef(storage, `listings/${currentUserAuth.uid}/${imageFileName}`);
+            const uploadTask = await uploadBytesResumable(imageRef, file);
+            const downloadURL = await getDownloadURL(uploadTask.ref);
+            uploadedUrls.push(downloadURL);
+        }
+        // If editing, new uploads replace old images. If creating, they are the initial images.
+        finalImageUrls = uploadedUrls; 
       }
 
 
@@ -409,27 +410,23 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
         locationCountry: { id: countryData.id, name: countryData.name },
         locationGovernorate: { id: governorateData.id, name: governorateData.name },
         locationDistrict: districtInfo,
-        images: finalImageUrls, // Use the processed URLs
-        // seller and postedDate are only for new listings
-        // status and isFeatured are usually handled by admin or have defaults
+        images: finalImageUrls,
       };
 
       if (isEditMode && listingToEdit) {
         const listingRef = doc(db, 'listings', listingToEdit.id);
-        // When editing, we only update fields that are part of the form.
-        // Seller, postedDate, status (unless admin can change it), isFeatured should not be overwritten here by default.
         const { seller: _, postedDate: __, status: ___, isFeatured: ____, ...editablePayload } = listingPayload;
         await updateDoc(listingRef, editablePayload);
         toast({ title: t.listingUpdatedTitle, description: t.listingUpdatedDesc });
         router.push(`/listings/${listingToEdit.id}`); 
       } else {
         const newListingData: Omit<ListingType, 'id'> = {
-          ...listingPayload, // This includes title, desc, price, category, subcat, location details, images
+          ...listingPayload,
           seller: seller,
           postedDate: new Date().toISOString(),
-          status: 'pending', // Default status for new listings
-          isFeatured: false, // Default for new listings
-        } as Omit<ListingType, 'id'>; // Assert type as some fields in listingPayload are Partial
+          status: 'pending',
+          isFeatured: false,
+        } as Omit<ListingType, 'id'>;
         
         await addDoc(collection(db, 'listings'), newListingData);
         toast({ title: t.listingSubmittedTitle, description: t.listingSubmittedDesc });
@@ -441,9 +438,14 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
         setSelectedGovernorate(null); setAvailableDistricts([]);
       }
     } catch (error) {
-      console.error("Error submitting listing:", error);
+      console.error("Detailed error during listing submission/image upload:", error); 
       let errorMessage = (error as Error).message || t.submissionFailedDescDefault;
-      if ((error as Error).message.includes("Storage")) {
+      if ((error as any).code) {
+        console.error("Firebase error code:", (error as any).code);
+        if ((error as any).code.startsWith("storage/")) {
+            errorMessage = `${t.uploadFailedError} (Code: ${(error as any).code})`;
+        }
+      } else if ((error as Error).message && (error as Error).message.toLowerCase().includes("storage")) {
         errorMessage = t.uploadFailedError;
       }
       toast({
@@ -462,11 +464,10 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
       if (filesArray.length > MAX_IMAGES) {
         toast({ title: t.errorTitle, description: t.maxImagesError, variant: "destructive" });
         // @ts-ignore
-        event.target.value = null; // Clear the file input
+        event.target.value = null; 
         return;
       }
 
-      // Revoke old blob URLs
       imagePreviews.forEach(previewUrl => { 
         if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); 
       });
@@ -474,7 +475,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
       const newPreviews = filesArray.map(file => URL.createObjectURL(file));
       setImagePreviews(newPreviews);
       setImageFilesToUpload(filesArray); 
-      form.setValue('images', event.target.files); // Still set form value for schema validation if needed
+      form.setValue('images', event.target.files);
     }
   };
 
@@ -621,7 +622,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
               
               <FormField
                 control={form.control} name="images" 
-                render={({ field: { onChange, onBlur, name, ref } }) => ( // Destructure field to manually handle onChange for FileList
+                render={({ field: { onChange, onBlur, name, ref } }) => (
                   <FormItem>
                     <FormLabel className="flex items-center"><Upload className={`h-4 w-4 ${language === 'ar' ? 'ms-1' : 'me-1'}`}/>{t.uploadImagesLabel}</FormLabel>
                     <FormControl>
@@ -632,7 +633,7 @@ export function ListingForm({ listingToEdit }: ListingFormProps) {
                             onBlur={onBlur}
                             name={name}
                             ref={ref}
-                            onChange={handleImageChange} // Use custom handler
+                            onChange={handleImageChange}
                             disabled={isSubmitting} 
                             className="file:text-sm file:font-medium"
                         />
